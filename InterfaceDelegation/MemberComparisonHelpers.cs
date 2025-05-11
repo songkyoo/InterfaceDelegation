@@ -109,7 +109,6 @@ public static class MemberComparisonHelpers
         var baseTypeSymbol = typeSymbol.BaseType;
         while (baseTypeSymbol != null)
         {
-            // TODO 명시적 인터페이스 구현을 반환하는지 확인.
             foreach (var memberSymbol in baseTypeSymbol
                 .GetMembers()
                 .Where(symbol => symbol.DeclaredAccessibility != Accessibility.Private)

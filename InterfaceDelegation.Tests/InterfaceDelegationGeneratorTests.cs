@@ -102,7 +102,7 @@ public class InterfaceDelegationGeneratorTests
             public partial class TestClass : IGreeter
             {
                 [ImplementationOf(typeof(IGreeter))]
-                private readonly IGreeter Impl { get; } = new RealGreeter();
+                private IGreeter Impl { get; } = new RealGreeter();
             }
             """,
             expected:
@@ -153,7 +153,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 [ImplementationOf(typeof(IGreeterA))]
                 [ImplementationOf(typeof(IGreeterB))]
-                private readonly IGreeter Impl { get; } = new RealGreeter();
+                private IGreeter Impl { get; } = new RealGreeter();
             }
             """,
             expected:
@@ -190,25 +190,52 @@ public class InterfaceDelegationGeneratorTests
             public interface IGreeterA
             {
                 string Greet(string name);
+
+                float this[int index] { get; set; }
+
+                int Value { get; }
             }
 
             public interface IGreeterB
             {
-                string Greet(string name);
+                void Greet();
+
+                float this[int index] { get; }
+
+                string Value { get; set; }
             }
 
             public class RealGreeter : IGreeterA, IGreeterB
             {
                 string IGreeterA.Greet(string name) => $"Hello, {name}!";
 
-                string IGreeterB.Greet(string name) => $"Hello, {name}!";
+                int IGreeterA.Value => 42;
+
+                float IGreeterA.this[int index]
+                {
+                    get => 0.0f;
+                    set => throw new NotImplementedException();
+                }
+
+                void IGreeterB.Greet() { }
+
+                string IGreeterB.Value
+                {
+                    get => "Hello, world!";
+                    set => throw new NotImplementedException();
+                }
+
+                float IGreeterB.this[int index]
+                {
+                    get => 3.14f;
+                }
             }
 
             public partial class TestClass : IGreeterA, IGreeterB
             {
-                [ImplementationOf(typeof(IGreeterA))]
-                [ImplementationOf(typeof(IGreeterB))]
-                private readonly RealGreeter Impl { get; } = new RealGreeter();
+                [ImplementationOf(typeof(IGreeterA), ImplementationMode.Explicit)]
+                [ImplementationOf(typeof(IGreeterB), ImplementationMode.Explicit)]
+                private RealGreeter Impl { get; } = new RealGreeter();
             }
             """,
             expected:
@@ -221,11 +248,89 @@ public class InterfaceDelegationGeneratorTests
                 partial class TestClass
                 {
                     #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterA
-                    public string Greet(string name) => ((Macaron.InterfaceDelegation.Tests.IGreeterA)Impl).Greet(name);
+                    string Macaron.InterfaceDelegation.Tests.IGreeterA.Greet(string name)
+                    {
+                        return __Greet(ref Impl, name);
+
+                        #region Local Functions
+                        static string __Greet<T>(ref T value, string name) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => value.Greet(name);
+                        #endregion
+                    }
+
+                    float Macaron.InterfaceDelegation.Tests.IGreeterA.this[int index]
+                    {
+                        get
+                        {
+                            return __Get(ref Impl, index);
+
+                            #region Local Functions
+                            static float __Get<T>(ref T impl, int index) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index];
+                            #endregion
+                        }
+                        set
+                        {
+                            __Set(ref Impl, index, value);
+
+                            #region Local Functions
+                            static void __Set<T>(ref T impl, int index, float value) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index] = value;
+                            #endregion
+                        }
+                    }
+
+                    int Macaron.InterfaceDelegation.Tests.IGreeterA.Value
+                    {
+                        get
+                        {
+                            return __Get(ref Impl);
+
+                            #region Local Functions
+                            static int __Get<T>(ref T impl) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl.Value;
+                            #endregion
+                        }
+                    }
                     #endregion
 
                     #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterB
-                    public string Greet(string name) => ((Macaron.InterfaceDelegation.Tests.IGreeterB)Impl).Greet(name);
+                    void Macaron.InterfaceDelegation.Tests.IGreeterB.Greet()
+                    {
+                        __Greet(ref Impl);
+
+                        #region Local Functions
+                        static void __Greet<T>(ref T value) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => value.Greet();
+                        #endregion
+                    }
+
+                    float Macaron.InterfaceDelegation.Tests.IGreeterB.this[int index]
+                    {
+                        get
+                        {
+                            return __Get(ref Impl, index);
+
+                            #region Local Functions
+                            static float __Get<T>(ref T impl, int index) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl[index];
+                            #endregion
+                        }
+                    }
+
+                    string Macaron.InterfaceDelegation.Tests.IGreeterB.Value
+                    {
+                        get
+                        {
+                            return __Get(ref Impl);
+
+                            #region Local Functions
+                            static string __Get<T>(ref T impl) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value;
+                            #endregion
+                        }
+                        set
+                        {
+                            __Set(ref Impl, value);
+
+                            #region Local Functions
+                            static void __Set<T>(ref T impl, string value) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value = value;
+                            #endregion
+                        }
+                    }
                     #endregion
                 }
             }
@@ -262,10 +367,10 @@ public class InterfaceDelegationGeneratorTests
             public partial class TestClass : IGreeterA, IGreeterB
             {
                 [ImplementationOf(typeof(IGreeterA))]
-                private readonly IGreeterA ImplA { get; } = new RealGreeter();
+                private IGreeterA ImplA { get; } = new RealGreeter();
 
                 [ImplementationOf(typeof(IGreeterB))]
-                private readonly IGreeterB ImplB { get; } = new RealGreeter();
+                private IGreeterB ImplB { get; } = new RealGreeter();
             }
             """,
             expected:
@@ -478,7 +583,7 @@ public class InterfaceDelegationGeneratorTests
                 public void DoSomething() { }
             }
 
-            public partial record TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] RecordImpl Impl) : IRecordInterface
+            public partial record TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
             {
             }
             """,
@@ -492,7 +597,7 @@ public class InterfaceDelegationGeneratorTests
                 partial record TestRecordDelegation
                 {
                     #region Implementation of Macaron.InterfaceDelegation.Tests.IRecordInterface
-                    public void DoSomething() => ((Macaron.InterfaceDelegation.Tests.IRecordInterface)Impl).DoSomething();
+                    public void DoSomething() => Impl.DoSomething();
                     #endregion
                 }
             }
@@ -519,7 +624,7 @@ public class InterfaceDelegationGeneratorTests
                 public void DoSomething() { }
             }
 
-            public partial record struct TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] RecordImpl Impl) : IRecordInterface
+            public partial record struct TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
             {
             }
             """,
@@ -533,7 +638,7 @@ public class InterfaceDelegationGeneratorTests
                 partial record struct TestRecordDelegation
                 {
                     #region Implementation of Macaron.InterfaceDelegation.Tests.IRecordInterface
-                    public void DoSomething() => ((Macaron.InterfaceDelegation.Tests.IRecordInterface)Impl).DoSomething();
+                    public void DoSomething() => Impl.DoSomething();
                     #endregion
                 }
             }
@@ -990,16 +1095,22 @@ public class InterfaceDelegationGeneratorTests
             public interface IAbstractExample
             {
                 int GetAnswer();
+
+                int Value { get; }
             }
 
             public class AbstractExampleImpl : IAbstractExample
             {
                 public int GetAnswer() => 42;
+
+                public int Value { get => 42; }
             }
 
             public abstract class TestAbstractDelegationBase
             {
                 public abstract int GetAnswer();
+
+                public abstract int Value { get; }
             }
 
             public partial class TestAbstractDelegation : TestAbstractDelegationBase, IAbstractExample
@@ -1019,6 +1130,11 @@ public class InterfaceDelegationGeneratorTests
                 {
                     #region Implementation of Macaron.InterfaceDelegation.Tests.IAbstractExample
                     public override int GetAnswer() => _impl.GetAnswer();
+
+                    public override int Value
+                    {
+                        get => _impl.Value;
+                    }
                     #endregion
                 }
             }
@@ -1040,6 +1156,8 @@ public class InterfaceDelegationGeneratorTests
                 int GetAnswer();
 
                 void DoSomething();
+
+                int Value { get; }
             }
 
             public class AbstractExampleImpl : IAbstractExample
@@ -1047,11 +1165,15 @@ public class InterfaceDelegationGeneratorTests
                 public int GetAnswer() => 42;
 
                 public void DoSomething() { }
+
+                int Value { get => 42; }
             }
 
             public abstract class TestAbstractDelegationBase
             {
                 public abstract int GetAnswer();
+
+                public abstract int Value { get; }
             }
 
             public partial class TestAbstractDelegation : TestAbstractDelegationBase
@@ -1060,6 +1182,8 @@ public class InterfaceDelegationGeneratorTests
                 private readonly IAbstractExample _impl = new AbstractExampleImpl();
 
                 public override int GetAnswer() => 42;
+
+                public override int Value { get => 42; }
             }
             """,
             expected:
@@ -1081,3 +1205,4 @@ public class InterfaceDelegationGeneratorTests
         );
     }
 }
+// TODO 인덱서가 중첩되는 경우

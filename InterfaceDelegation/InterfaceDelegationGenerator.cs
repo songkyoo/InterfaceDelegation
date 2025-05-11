@@ -139,19 +139,18 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             mode
         ) = context;
 
-        var isMemberImplementingInterface = memberSymbol switch
+        var memberType = memberSymbol switch
         {
-            IFieldSymbol fieldSymbol => IsImplementingInterface(fieldSymbol.Type, interfaceSymbol),
-            IPropertySymbol propertySymbol => IsImplementingInterface(propertySymbol.Type, interfaceSymbol),
-            IParameterSymbol parameterSymbol => IsImplementingInterface(parameterSymbol.Type, interfaceSymbol),
-            _ => false
+            IFieldSymbol fieldSymbol => fieldSymbol.Type,
+            IPropertySymbol propertySymbol => propertySymbol.Type,
+            IParameterSymbol parameterSymbol => parameterSymbol.Type,
+            _ => throw new InvalidOperationException($"Unexpected symbol type: {memberSymbol.GetType().Name}"),
         };
+        var isMemberImplementingInterface = IsImplementingInterface(memberType, interfaceSymbol);
 
         var classSymbol = memberSymbol.ContainingType;
         var className = classSymbol.Name;
-        var memberName = isMemberImplementingInterface
-            ? $"(({interfaceSymbol}){memberSymbol.Name})"
-            : memberSymbol.Name;
+        var memberName = memberSymbol.Name;
 
         var getImplementedMember = BuildMemberComparer(classSymbol, interfaceSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -174,12 +173,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 continue;
             }
 
+            var accessibility = isExplicit ? "" : "public ";
+            var @override = isAbstract ? "override " : "";
+            var @interface = isExplicit ? $"{interfaceSymbol}." : "";
+
             if (symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } methodSymbol)
             {
-                var accessibility = isExplicit ? "" : "public ";
-                var @override = isAbstract ? "override " : "";
                 var returnType = methodSymbol.ReturnType.ToDisplayString();
-                var @interface = isExplicit ? $"{interfaceSymbol.ToDisplayString()}." : "";
                 var methodName = methodSymbol.Name;
                 var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
                 var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
@@ -189,7 +189,21 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add("");
                 }
 
-                builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}({parameters}) => {memberName}.{methodName}({arguments});");
+                if (isMemberImplementingInterface)
+                {
+                    builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}({parameters})");
+                    builder.Add($"{{");
+                    builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(ref {memberName}{(arguments.Length > 0 ? $", {arguments }": "")});");
+                    builder.Add($"");
+                    builder.Add($"{Space}#region Local Functions");
+                    builder.Add($"{Space}static {returnType} __{methodName}<T>(ref T value{(parameters.Length > 0 ? $", {parameters }": "")}) where T : {interfaceSymbol} => value.{methodName}({arguments});");
+                    builder.Add($"{Space}#endregion");
+                    builder.Add($"}}");
+                }
+                else
+                {
+                    builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}({parameters}) => {memberName}.{methodName}({arguments});");
+                }
             }
             else if (symbol is IPropertySymbol propertySymbol)
             {
@@ -203,8 +217,6 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add("");
                 }
 
-                var accessibility = isExplicit ? "" : "public ";
-                var @interface = isExplicit ? $"{interfaceSymbol.ToDisplayString()}." : "";
                 var propertyType = propertySymbol.Type.ToDisplayString();
                 var propertyName = propertySymbol.Name;
 
@@ -218,29 +230,85 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
                     if (propertySymbol.GetMethod != null)
                     {
-                        builder.Add($"{Space}get => {memberName}[{arguments}];");
+                        if (isMemberImplementingInterface)
+                        {
+                            builder.Add($"{Space}get");
+                            builder.Add($"{Space}{{");
+                            builder.Add($"{Space}{Space}return __Get(ref {memberName}, {arguments});");
+                            builder.Add($"");
+                            builder.Add($"{Space}{Space}#region Local Functions");
+                            builder.Add($"{Space}{Space}static {propertyType} __Get<T>(ref T impl, {parameters}) where T : {interfaceSymbol} => impl[{arguments}];");
+                            builder.Add($"{Space}{Space}#endregion");
+                            builder.Add($"{Space}}}");
+                        }
+                        else
+                        {
+                            builder.Add($"{Space}get => {memberName}[{arguments}];");
+                        }
                     }
 
                     if (propertySymbol.SetMethod != null)
                     {
-                        builder.Add($"{Space}set => {memberName}[{arguments}] = value;");
+                        if (isMemberImplementingInterface)
+                        {
+                            builder.Add($"{Space}set");
+                            builder.Add($"{Space}{{");
+                            builder.Add($"{Space}{Space}__Set(ref {memberName}, {arguments}, value);");
+                            builder.Add($"");
+                            builder.Add($"{Space}{Space}#region Local Functions");
+                            builder.Add($"{Space}{Space}static void __Set<T>(ref T impl, {parameters}, {propertyType} value) where T : {interfaceSymbol} => impl[{arguments}] = value;");
+                            builder.Add($"{Space}{Space}#endregion");
+                            builder.Add($"{Space}}}");
+                        }
+                        else
+                        {
+                            builder.Add($"{Space}set => {memberName}[{arguments}] = value;");
+                        }
                     }
 
                     builder.Add($"}}");
                 }
                 else
                 {
-                    builder.Add($"{accessibility}{propertyType} {@interface}{propertyName}");
+                    builder.Add($"{accessibility}{@override}{propertyType} {@interface}{propertyName}");
                     builder.Add($"{{");
 
                     if (propertySymbol.GetMethod != null)
                     {
-                        builder.Add($"{Space}get => {memberName}.{propertyName};");
+                        if (isMemberImplementingInterface)
+                        {
+                            builder.Add($"{Space}get");
+                            builder.Add($"{Space}{{");
+                            builder.Add($"{Space}{Space}return __Get(ref {memberName});");
+                            builder.Add($"");
+                            builder.Add($"{Space}{Space}#region Local Functions");
+                            builder.Add($"{Space}{Space}static {propertyType} __Get<T>(ref T impl) where T : {interfaceSymbol} => impl.{propertyName};");
+                            builder.Add($"{Space}{Space}#endregion");
+                            builder.Add($"{Space}}}");
+                        }
+                        else
+                        {
+                            builder.Add($"{Space}get => {memberName}.{propertyName};");
+                        }
                     }
 
                     if (propertySymbol.SetMethod != null)
                     {
-                        builder.Add($"{Space}set => {memberName}.{propertyName} = value;");
+                        if (isMemberImplementingInterface)
+                        {
+                            builder.Add($"{Space}set");
+                            builder.Add($"{Space}{{");
+                            builder.Add($"{Space}{Space}__Set(ref {memberName}, value);");
+                            builder.Add($"");
+                            builder.Add($"{Space}{Space}#region Local Functions");
+                            builder.Add($"{Space}{Space}static void __Set<T>(ref T impl, {propertyType} value) where T : {interfaceSymbol} => impl.{propertyName} = value;");
+                            builder.Add($"{Space}{Space}#endregion");
+                            builder.Add($"{Space}}}");
+                        }
+                        else
+                        {
+                            builder.Add($"{Space}set => {memberName}.{propertyName} = value;");
+                        }
                     }
 
                     builder.Add($"}}");

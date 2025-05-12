@@ -71,7 +71,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestClass
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeter
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeter
                     public string Greet(string name) => _impl.Greet(name);
                     #endregion
                 }
@@ -114,7 +114,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestClass
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeter
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeter
                     public string Greet(string name) => Impl.Greet(name);
                     #endregion
                 }
@@ -165,11 +165,11 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestClass
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterA
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterA
                     public string GreetA(string name) => Impl.GreetA(name);
                     #endregion
 
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterB
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterB
                     public string GreetB(string name) => Impl.GreetB(name);
                     #endregion
                 }
@@ -247,24 +247,24 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestClass
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterA
-                    string Macaron.InterfaceDelegation.Tests.IGreeterA.Greet(string name)
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterA
+                    string global::Macaron.InterfaceDelegation.Tests.IGreeterA.Greet(string name)
                     {
                         return __Greet(ref Impl, name);
 
                         #region Local Functions
-                        static string __Greet<T>(ref T value, string name) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => value.Greet(name);
+                        static string __Greet<T>(ref T value, string name) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => value.Greet(name);
                         #endregion
                     }
 
-                    float Macaron.InterfaceDelegation.Tests.IGreeterA.this[int index]
+                    float global::Macaron.InterfaceDelegation.Tests.IGreeterA.this[int index]
                     {
                         get
                         {
                             return __Get(ref Impl, index);
 
                             #region Local Functions
-                            static float __Get<T>(ref T impl, int index) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index];
+                            static float __Get<T>(ref T impl, int index) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index];
                             #endregion
                         }
                         set
@@ -272,54 +272,54 @@ public class InterfaceDelegationGeneratorTests
                             __Set(ref Impl, index, value);
 
                             #region Local Functions
-                            static void __Set<T>(ref T impl, int index, float value) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index] = value;
+                            static void __Set<T>(ref T impl, int index, float value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index] = value;
                             #endregion
                         }
                     }
 
-                    int Macaron.InterfaceDelegation.Tests.IGreeterA.Value
+                    int global::Macaron.InterfaceDelegation.Tests.IGreeterA.Value
                     {
                         get
                         {
                             return __Get(ref Impl);
 
                             #region Local Functions
-                            static int __Get<T>(ref T impl) where T : Macaron.InterfaceDelegation.Tests.IGreeterA => impl.Value;
+                            static int __Get<T>(ref T impl) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl.Value;
                             #endregion
                         }
                     }
                     #endregion
 
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterB
-                    void Macaron.InterfaceDelegation.Tests.IGreeterB.Greet()
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterB
+                    void global::Macaron.InterfaceDelegation.Tests.IGreeterB.Greet()
                     {
                         __Greet(ref Impl);
 
                         #region Local Functions
-                        static void __Greet<T>(ref T value) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => value.Greet();
+                        static void __Greet<T>(ref T value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => value.Greet();
                         #endregion
                     }
 
-                    float Macaron.InterfaceDelegation.Tests.IGreeterB.this[int index]
+                    float global::Macaron.InterfaceDelegation.Tests.IGreeterB.this[int index]
                     {
                         get
                         {
                             return __Get(ref Impl, index);
 
                             #region Local Functions
-                            static float __Get<T>(ref T impl, int index) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl[index];
+                            static float __Get<T>(ref T impl, int index) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl[index];
                             #endregion
                         }
                     }
 
-                    string Macaron.InterfaceDelegation.Tests.IGreeterB.Value
+                    string global::Macaron.InterfaceDelegation.Tests.IGreeterB.Value
                     {
                         get
                         {
                             return __Get(ref Impl);
 
                             #region Local Functions
-                            static string __Get<T>(ref T impl) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value;
+                            static string __Get<T>(ref T impl) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value;
                             #endregion
                         }
                         set
@@ -327,7 +327,7 @@ public class InterfaceDelegationGeneratorTests
                             __Set(ref Impl, value);
 
                             #region Local Functions
-                            static void __Set<T>(ref T impl, string value) where T : Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value = value;
+                            static void __Set<T>(ref T impl, string value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value = value;
                             #endregion
                         }
                     }
@@ -382,11 +382,11 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestClass
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterA
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterA
                     public string GreetA(string name) => ImplA.GreetA(name);
                     #endregion
 
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IGreeterB
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterB
                     public string GreetB(string name) => ImplB.GreetB(name);
                     #endregion
                 }
@@ -443,7 +443,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPropertyDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IPropertyExample
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IPropertyExample
                     public int Id
                     {
                         get => _impl.Id;
@@ -505,7 +505,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestMethodOverloads
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.ICalculator
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.ICalculator
                     public int Add(int a, int b) => _impl.Add(a, b);
 
                     public double Add(double a, double b) => _impl.Add(a, b);
@@ -555,7 +555,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial struct TestStructDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IStructInterface
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IStructInterface
                     public void DoSomething() => _impl.DoSomething();
                     #endregion
                 }
@@ -596,7 +596,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial record TestRecordDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IRecordInterface
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IRecordInterface
                     public void DoSomething() => Impl.DoSomething();
                     #endregion
                 }
@@ -637,7 +637,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial record struct TestRecordDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IRecordInterface
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IRecordInterface
                     public void DoSomething() => Impl.DoSomething();
                     #endregion
                 }
@@ -686,7 +686,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialAutoImplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
                     public void MethodB() => _impl.MethodB();
                     #endregion
                 }
@@ -735,7 +735,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialAutoExplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
                     public void MethodB() => _impl.MethodB();
                     #endregion
                 }
@@ -782,7 +782,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialImplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
                     public void MethodA() => _impl.MethodA();
 
                     public void MethodB() => _impl.MethodB();
@@ -833,7 +833,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialImplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
                     public void MethodB() => _impl.MethodB();
                     #endregion
                 }
@@ -882,7 +882,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialImplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
                     public void MethodB() => _impl.MethodB();
                     #endregion
                 }
@@ -925,8 +925,8 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestExplicitMode
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IService
-                    void Macaron.InterfaceDelegation.Tests.IService.Execute() => _impl.Execute();
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IService
+                    void global::Macaron.InterfaceDelegation.Tests.IService.Execute() => _impl.Execute();
                     #endregion
                 }
             }
@@ -974,8 +974,8 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialExplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
-                    void Macaron.InterfaceDelegation.Tests.IFoo.MethodB() => _impl.MethodB();
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
+                    void global::Macaron.InterfaceDelegation.Tests.IFoo.MethodB() => _impl.MethodB();
                     #endregion
                 }
             }
@@ -1023,10 +1023,10 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestPartialExplicit
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IFoo
-                    void Macaron.InterfaceDelegation.Tests.IFoo.MethodA() => _impl.MethodA();
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IFoo
+                    void global::Macaron.InterfaceDelegation.Tests.IFoo.MethodA() => _impl.MethodA();
 
-                    void Macaron.InterfaceDelegation.Tests.IFoo.MethodB() => _impl.MethodB();
+                    void global::Macaron.InterfaceDelegation.Tests.IFoo.MethodB() => _impl.MethodB();
                     #endregion
                 }
             }
@@ -1074,7 +1074,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestAbstractDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IAbstractExample
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IAbstractExample
                     public void DoSomething() => _impl.DoSomething();
                     #endregion
                 }
@@ -1128,7 +1128,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestAbstractDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IAbstractExample
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IAbstractExample
                     public override int GetAnswer() => _impl.GetAnswer();
 
                     public override int Value
@@ -1195,7 +1195,7 @@ public class InterfaceDelegationGeneratorTests
             {
                 partial class TestAbstractDelegation
                 {
-                    #region Implementation of Macaron.InterfaceDelegation.Tests.IAbstractExample
+                    #region Implementation of global::Macaron.InterfaceDelegation.Tests.IAbstractExample
                     public void DoSomething() => _impl.DoSomething();
                     #endregion
                 }
@@ -1205,4 +1205,3 @@ public class InterfaceDelegationGeneratorTests
         );
     }
 }
-// TODO 인덱서가 중첩되는 경우

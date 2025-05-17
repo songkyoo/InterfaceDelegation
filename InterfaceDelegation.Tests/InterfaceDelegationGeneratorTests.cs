@@ -9,10 +9,12 @@ public class InterfaceDelegationGeneratorTests
 {
     private static void Assert(string sourceCode, string expected)
     {
+        var attributeAssembly = typeof(ImplementationOfAttribute).Assembly;
         var references = AppDomain
             .CurrentDomain
             .GetAssemblies()
             .Where(assembly => !assembly.IsDynamic && !string.IsNullOrWhiteSpace(assembly.Location))
+            .Append(attributeAssembly)
             .Select(assembly => MetadataReference.CreateFromFile(assembly.Location))
             .Cast<MetadataReference>()
             .ToImmutableArray();
@@ -28,12 +30,17 @@ public class InterfaceDelegationGeneratorTests
             )
         );
 
+        foreach (var diagnostic in compilation.GetDiagnostics())
+        {
+            Console.WriteLine(diagnostic);
+        }
+
         var generator = new InterfaceDelegationGenerator();
         var driver = CSharpGeneratorDriver.Create(generator);
 
         var result = driver.RunGenerators(compilation).GetRunResult().Results.Single();
         var generatedSources = result.GeneratedSources;
-        var actual = generatedSources.Length > 2 ? generatedSources[2].SourceText.ToString() : "";
+        var actual = generatedSources.Length > 0 ? generatedSources[0].SourceText.ToString() : "";
 
         NUnit.Framework.Assert.That(actual, Is.EqualTo(expected));
     }

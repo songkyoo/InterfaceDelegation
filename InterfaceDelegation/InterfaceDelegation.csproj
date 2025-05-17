@@ -1,44 +1,40 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AnalyzerLanguage>cs</AnalyzerLanguage>
-    <DevelopmentDependency>true</DevelopmentDependency>
-    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <ImplicitUsings>enable</ImplicitUsings>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <IncludeSymbols>false</IncludeSymbols>
-    <IsRoslynComponent>true</IsRoslynComponent>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <OutputType>Library</OutputType>
     <RootNamespace>Macaron.InterfaceDelegation</RootNamespace>
-    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>
     <PackageId>Macaron.InterfaceDelegation</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>Gyu Song</Authors>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/songkyoo/InterfaceDelegation</RepositoryUrl>
   </PropertyGroup>
-  
-  <ItemGroup>
-    <None Include="bin\Release\netstandard2.0\InterfaceDelegation.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" />
-  </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.0" PrivateAssets="all" />
-    <PackageReference Include="PolySharp" Version="1.15.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    <ProjectReference Include="..\InterfaceDelegation.Attribute\InterfaceDelegation.Attribute.csproj">
       <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <IncludeAssets>compile</IncludeAssets>
+      <ExcludeAssets>runtime;build;native;contentfiles;analyzers</ExcludeAssets>
+    </ProjectReference>
+    <ProjectReference Include="..\InterfaceDelegation.Generator\InterfaceDelegation.Generator.csproj">
+      <PrivateAssets>all</PrivateAssets>
+      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
+      <IncludeAssets>compile</IncludeAssets>
+      <ExcludeAssets>runtime;build;native;contentfiles;analyzers</ExcludeAssets>
+    </ProjectReference>
   </ItemGroup>
 
-  <ItemGroup Condition="$(TargetFramework) == 'netstandard2.0'">
-    <PackageReference Include="System.Collections.Immutable" Version="6.0.1" />
+  <ItemGroup>
+    <None Include="..\InterfaceDelegation.Attribute\bin\Release\netstandard2.0\InterfaceDelegation.Attribute.dll" Pack="true" PackagePath="lib/netstandard2.0" />
+    <None Include="..\InterfaceDelegation.Generator\bin\Release\netstandard2.0\InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" />
   </ItemGroup>
 
 </Project>

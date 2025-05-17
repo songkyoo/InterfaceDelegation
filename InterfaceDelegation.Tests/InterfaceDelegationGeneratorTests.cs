@@ -250,86 +250,36 @@ public class InterfaceDelegationGeneratorTests
                     #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterA
                     string global::Macaron.InterfaceDelegation.Tests.IGreeterA.Greet(string name)
                     {
-                        return __Greet(ref Impl, name);
-
-                        #region Local Functions
-                        static string __Greet<T>(ref T value, string name) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => value.Greet(name);
-                        #endregion
+                        return ((global::Macaron.InterfaceDelegation.Tests.IGreeterA)Impl).Greet(name);
                     }
 
                     float global::Macaron.InterfaceDelegation.Tests.IGreeterA.this[int index]
                     {
-                        get
-                        {
-                            return __Get(ref Impl, index);
-
-                            #region Local Functions
-                            static float __Get<T>(ref T impl, int index) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index];
-                            #endregion
-                        }
-                        set
-                        {
-                            __Set(ref Impl, index, value);
-
-                            #region Local Functions
-                            static void __Set<T>(ref T impl, int index, float value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl[index] = value;
-                            #endregion
-                        }
+                        get => ((global::Macaron.InterfaceDelegation.Tests.IGreeterA)Impl)[index];
+                        set => ((global::Macaron.InterfaceDelegation.Tests.IGreeterA)Impl)[index] = value;
                     }
 
                     int global::Macaron.InterfaceDelegation.Tests.IGreeterA.Value
                     {
-                        get
-                        {
-                            return __Get(ref Impl);
-
-                            #region Local Functions
-                            static int __Get<T>(ref T impl) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterA => impl.Value;
-                            #endregion
-                        }
+                        get => ((global::Macaron.InterfaceDelegation.Tests.IGreeterA)Impl).Value;
                     }
                     #endregion
 
                     #region Implementation of global::Macaron.InterfaceDelegation.Tests.IGreeterB
                     void global::Macaron.InterfaceDelegation.Tests.IGreeterB.Greet()
                     {
-                        __Greet(ref Impl);
-
-                        #region Local Functions
-                        static void __Greet<T>(ref T value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => value.Greet();
-                        #endregion
+                        ((global::Macaron.InterfaceDelegation.Tests.IGreeterB)Impl).Greet();
                     }
 
                     float global::Macaron.InterfaceDelegation.Tests.IGreeterB.this[int index]
                     {
-                        get
-                        {
-                            return __Get(ref Impl, index);
-
-                            #region Local Functions
-                            static float __Get<T>(ref T impl, int index) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl[index];
-                            #endregion
-                        }
+                        get => ((global::Macaron.InterfaceDelegation.Tests.IGreeterB)Impl)[index];
                     }
 
                     string global::Macaron.InterfaceDelegation.Tests.IGreeterB.Value
                     {
-                        get
-                        {
-                            return __Get(ref Impl);
-
-                            #region Local Functions
-                            static string __Get<T>(ref T impl) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value;
-                            #endregion
-                        }
-                        set
-                        {
-                            __Set(ref Impl, value);
-
-                            #region Local Functions
-                            static void __Set<T>(ref T impl, string value) where T : global::Macaron.InterfaceDelegation.Tests.IGreeterB => impl.Value = value;
-                            #endregion
-                        }
+                        get => ((global::Macaron.InterfaceDelegation.Tests.IGreeterB)Impl).Value;
+                        set => ((global::Macaron.InterfaceDelegation.Tests.IGreeterB)Impl).Value = value;
                     }
                     #endregion
                 }

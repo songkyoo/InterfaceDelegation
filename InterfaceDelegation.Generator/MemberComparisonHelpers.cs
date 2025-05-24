@@ -6,8 +6,8 @@ namespace Macaron.InterfaceDelegation;
 public static class MemberComparisonHelpers
 {
     public static Func<ISymbol, bool, ISymbol?> BuildMemberComparer(
-        INamedTypeSymbol typeSymbol,
-        INamedTypeSymbol interfaceSymbol
+        ITypeSymbol typeSymbol,
+        ITypeSymbol interfaceSymbol
     )
     {
         var symbolComparer = SymbolEqualityComparer.Default;
@@ -99,7 +99,7 @@ public static class MemberComparisonHelpers
         #endregion
     }
 
-    private static IEnumerable<ISymbol> GetMembersWithBaseTypes(INamedTypeSymbol typeSymbol)
+    private static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
     {
         foreach (var memberSymbol in typeSymbol.GetMembers())
         {

@@ -15,19 +15,20 @@ namespace Macaron.InterfaceDelegation;
 public class InterfaceDelegationGenerator : IIncrementalGenerator
 {
     #region Constants
-    private const string Auto = nameof(ImplementationMode.Auto);
     private const string Implicit = nameof(ImplementationMode.Implicit);
     private const string Explicit = nameof(ImplementationMode.Explicit);
+    private const string Forward = nameof(Forward);
 
     private const string ImplementationOfAttributeString = "Macaron.InterfaceDelegation.ImplementationOfAttribute";
+    private const string ForwardAttributeString = "Macaron.InterfaceDelegation.ForwardAttribute";
 
     private const string Space = "    ";
     #endregion
 
     #region Types
     private sealed record GenerationContext(
-        ISymbol MemberSymbol,
-        INamedTypeSymbol InterfaceTypeSymbol,
+        ISymbol DeclaredSymbol,
+        ITypeSymbol DelegationTypeSymbol,
         string Mode
     );
     #endregion
@@ -35,38 +36,48 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     #region Static
     private static ImmutableArray<GenerationContext> GetGenerationContext(GeneratorSyntaxContext context)
     {
-        var memberSymbol = context.Node switch
+        var declaredSymbol = context.Node switch
         {
             FieldDeclarationSyntax { Declaration.Variables: [var decl] } => GetDeclaredSymbol(decl),
             PropertyDeclarationSyntax decl => GetDeclaredSymbol(decl),
             ParameterSyntax decl => GetDeclaredSymbol(decl),
             _ => null,
         };
-        if (memberSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct ||
-            memberSymbol is IPropertySymbol { Type.IsValueType: true }
+        if (declaredSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct ||
+            declaredSymbol is IPropertySymbol { Type.IsValueType: true }
         )
         {
             return ImmutableArray<GenerationContext>.Empty;
         }
 
         var builder = ImmutableArray.CreateBuilder<GenerationContext>();
-        foreach (var attributeData in memberSymbol.GetAttributes())
+        foreach (var attributeData in declaredSymbol.GetAttributes())
         {
             var constructorArguments = attributeData.ConstructorArguments;
+            var attributeString = attributeData.AttributeClass?.ToDisplayString();
 
-            if (attributeData.AttributeClass?.ToDisplayString() != ImplementationOfAttributeString ||
-                constructorArguments.Length < 1
-            )
+            if (attributeString == ImplementationOfAttributeString && constructorArguments.Length >= 1)
             {
-                continue;
-            }
+                if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
+                {
+                    if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsGenericType)
+                    {
+                        continue;
+                    }
 
-            if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
+                    builder.Add(new GenerationContext(
+                        DeclaredSymbol: declaredSymbol,
+                        DelegationTypeSymbol: interfaceTypeSymbol,
+                        Mode: GetImplementationMode(constructorArguments)
+                    ));
+                }
+            }
+            else if (attributeString == ForwardAttributeString)
             {
                 builder.Add(new GenerationContext(
-                    MemberSymbol: memberSymbol,
-                    InterfaceTypeSymbol: interfaceTypeSymbol,
-                    Mode: GetImplementationMode(constructorArguments)
+                    DeclaredSymbol: declaredSymbol,
+                    DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
+                    Mode: Forward
                 ));
             }
         }
@@ -82,9 +93,8 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             return modeValue switch
             {
-                1 => Implicit,
-                2 => Explicit,
-                _ => Auto,
+                1 => Explicit,
+                _ => Implicit,
             };
         }
 
@@ -92,41 +102,49 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         #endregion
     }
 
-    private static ImmutableArray<string> GenerateInterfaceDelegationCode(GenerationContext context)
+    private static ImmutableArray<string> GenerateDelegationCode(GenerationContext context)
     {
         var (
-            memberSymbol,
-            interfaceTypeSymbol,
+            declaredSymbol,
+            delegationTypeSymbol,
             mode
         ) = context;
 
-        var memberTypeSymbol = memberSymbol switch
-        {
-            IFieldSymbol fieldSymbol => fieldSymbol.Type,
-            IPropertySymbol propertySymbol => propertySymbol.Type,
-            IParameterSymbol parameterSymbol => parameterSymbol.Type,
-            _ => throw new InvalidOperationException($"Unexpected symbol type: {memberSymbol.GetType().Name}"),
-        };
-        var isMemberImplementingInterface = IsImplementingInterface(memberTypeSymbol, interfaceTypeSymbol);
+        var isForwardMode = mode == Forward;
+        var isMemberImplementingInterface =
+            !isForwardMode && IsImplementingInterface(GetDeclaredSymbolType(declaredSymbol), delegationTypeSymbol);
+        var isField = declaredSymbol is IFieldSymbol;
 
-        var typeSymbol = memberSymbol.ContainingType;
+        var typeSymbol = declaredSymbol.ContainingType;
+
         var typeName = typeSymbol.Name;
-        var memberName = memberSymbol.Name;
+        var declaredSymbolName = declaredSymbol.Name;
+        var interfaceTypeString = isForwardMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat);
 
-        var interfaceTypeString = interfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat);
-
-        var isField = memberSymbol is IFieldSymbol;
-        var getImplementedMember = BuildMemberComparer(typeSymbol, interfaceTypeSymbol);
+        var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in interfaceTypeSymbol.GetMembers())
+        foreach (var symbol in delegationTypeSymbol.GetMembers())
         {
+            if (symbol.IsStatic)
+            {
+                continue;
+            }
+
+            if (isForwardMode && symbol.DeclaredAccessibility != Accessibility.Public)
+            {
+                continue;
+            }
+
             var (
                 hasImplementedMember,
                 isExplicit,
                 isAbstract
             ) = GetImplementationContext(
-                mode: symbol.Name == typeName ? Explicit : mode,
+                mode:
+                    isForwardMode ? Forward :
+                    symbol.Name == typeName ? Explicit :
+                    mode,
                 containingTypeSymbol: typeSymbol,
                 implicitMemberSymbol: getImplementedMember(symbol, false),
                 explicitMemberSymbol: getImplementedMember(symbol, true)
@@ -140,7 +158,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             var accessibility = isExplicit ? "" : "public ";
             var @override = isAbstract ? "override " : "";
             var @interface = isExplicit
-                ? $"{interfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
+                ? $"{delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
                 : "";
 
             if (symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } methodSymbol)
@@ -178,7 +196,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
                     if (isField)
                     {
-                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(ref {memberName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
+                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(ref {declaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
                         builder.Add($"");
                         builder.Add($"{Space}#region Local Functions");
                         builder.Add($"{Space}static {returnType} __{methodName}<__T>(ref __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {interfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
@@ -186,14 +204,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     }
                     else
                     {
-                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({interfaceTypeString}){memberName}).{methodName}({(arguments.Length > 0 ? $"{arguments}" : "")});");
+                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({interfaceTypeString}){declaredSymbolName}).{methodName}({(arguments.Length > 0 ? $"{arguments}" : "")});");
                     }
 
                     builder.Add($"}}");
                 }
                 else
                 {
-                    builder.Add($"{Space}=> {memberName}.{methodName}{genericParameters}({arguments});");
+                    builder.Add($"{Space}=> {declaredSymbolName}.{methodName}{genericParameters}({arguments});");
                 }
             }
             else if (symbol is IPropertySymbol propertySymbol)
@@ -227,7 +245,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}get");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}return __Get(ref {memberName}, {arguments});");
+                                builder.Add($"{Space}{Space}return __Get(ref {declaredSymbolName}, {arguments});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
                                 builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl, {parameters}) where __TImpl : {interfaceTypeString} => __impl[{arguments}];");
@@ -236,12 +254,12 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             }
                             else
                             {
-                                builder.Add($"{Space}get => (({interfaceTypeString}){memberName})[{arguments}];");
+                                builder.Add($"{Space}get => (({interfaceTypeString}){declaredSymbolName})[{arguments}];");
                             }
                         }
                         else
                         {
-                            builder.Add($"{Space}get => {memberName}[{arguments}];");
+                            builder.Add($"{Space}get => {declaredSymbolName}[{arguments}];");
                         }
                     }
 
@@ -253,7 +271,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}set");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}__Set(ref {memberName}, {arguments}, value);");
+                                builder.Add($"{Space}{Space}__Set(ref {declaredSymbolName}, {arguments}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
                                 builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {parameters}, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl[{arguments}] = value;");
@@ -262,12 +280,12 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             }
                             else
                             {
-                                builder.Add($"{Space}set => (({interfaceTypeString}){memberName})[{arguments}] = value;");
+                                builder.Add($"{Space}set => (({interfaceTypeString}){declaredSymbolName})[{arguments}] = value;");
                             }
                         }
                         else
                         {
-                            builder.Add($"{Space}set => {memberName}[{arguments}] = value;");
+                            builder.Add($"{Space}set => {declaredSymbolName}[{arguments}] = value;");
                         }
                     }
 
@@ -286,7 +304,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}get");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}return __Get(ref {memberName});");
+                                builder.Add($"{Space}{Space}return __Get(ref {declaredSymbolName});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
                                 builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl) where __TImpl : {interfaceTypeString} => __impl.{propertyName};");
@@ -295,12 +313,12 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             }
                             else
                             {
-                                builder.Add($"{Space}get => (({interfaceTypeString}){memberName}).{propertyName};");
+                                builder.Add($"{Space}get => (({interfaceTypeString}){declaredSymbolName}).{propertyName};");
                             }
                         }
                         else
                         {
-                            builder.Add($"{Space}get => {memberName}.{propertyName};");
+                            builder.Add($"{Space}get => {declaredSymbolName}.{propertyName};");
                         }
                     }
 
@@ -312,7 +330,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}set");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}__Set(ref {memberName}, value);");
+                                builder.Add($"{Space}{Space}__Set(ref {declaredSymbolName}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
                                 builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl.{propertyName} = value;");
@@ -321,12 +339,12 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             }
                             else
                             {
-                                builder.Add($"{Space}set => (({interfaceTypeString}){memberName}).{propertyName} = value;");
+                                builder.Add($"{Space}set => (({interfaceTypeString}){declaredSymbolName}).{propertyName} = value;");
                             }
                         }
                         else
                         {
-                            builder.Add($"{Space}set => {memberName}.{propertyName} = value;");
+                            builder.Add($"{Space}set => {declaredSymbolName}.{propertyName} = value;");
                         }
                     }
 
@@ -338,14 +356,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         return builder.ToImmutable();
 
         #region Local Functions
-        static bool IsImplementingInterface(ITypeSymbol typeSymbol, INamedTypeSymbol interfaceSymbol)
+        static bool IsImplementingInterface(ITypeSymbol typeSymbol, ITypeSymbol interfaceSymbol)
         {
             return typeSymbol.Interfaces.Contains(interfaceSymbol, SymbolEqualityComparer.Default);
         }
 
         static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
             string mode,
-            INamedTypeSymbol? containingTypeSymbol,
+            ITypeSymbol? containingTypeSymbol,
             ISymbol? implicitMemberSymbol,
             ISymbol? explicitMemberSymbol
         )
@@ -358,15 +376,15 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             var result = mode switch
             {
-                Implicit => (implicitMemberSymbol, explicitMemberSymbol) switch
-                {
-                    (null, null) => defaultValue,
-                    ({ IsAbstract: true }, null) => defaultValue with { isAbstract = true },
-                    _ => defaultValue with { hasImplementedMember = true },
-                },
                 Explicit => explicitMemberSymbol == null
                     ? defaultValue with { isExplicit = true }
                     : defaultValue with { hasImplementedMember = true },
+                Forward => implicitMemberSymbol switch
+                {
+                    null => defaultValue,
+                    { IsAbstract: true } => defaultValue with { isAbstract = true },
+                    _ => defaultValue with { hasImplementedMember = true },
+                },
                 _ => (implicitMemberSymbol, explicitMemberSymbol) switch
                 {
                     (null, null) => defaultValue,
@@ -383,6 +401,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         }
         #endregion
     }
+
+    private static ITypeSymbol GetDeclaredSymbolType(ISymbol symbol) => symbol switch
+    {
+        IFieldSymbol fieldSymbol => fieldSymbol.Type,
+        IPropertySymbol propertySymbol => propertySymbol.Type,
+        IParameterSymbol parameterSymbol => parameterSymbol.Type,
+        _ => throw new InvalidOperationException($"Unexpected symbol type: {symbol.GetType().Name}"),
+    };
 
     private static void AddSource(
         SourceProductionContext context,
@@ -479,7 +505,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(valuesProvider.Collect(), (sourceProductionContext, generationContexts) =>
         {
             foreach (var pair in generationContexts.GroupBy(
-                keySelector: generationContext => generationContext.MemberSymbol.ContainingType,
+                keySelector: generationContext => generationContext.DeclaredSymbol.ContainingType,
                 comparer: SymbolEqualityComparer.Default
             ))
             {
@@ -487,7 +513,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
                 foreach (var generationContext in pair)
                 {
-                    var lines = GenerateInterfaceDelegationCode(generationContext);
+                    var lines = GenerateDelegationCode(generationContext);
                     if (lines.IsEmpty)
                     {
                         continue;
@@ -498,7 +524,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         builder.Add("");
                     }
 
-                    builder.Add($"#region Implementation of {generationContext.InterfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat)}");
+                    builder.Add($"#region {generationContext.DelegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}");
                     builder.AddRange(lines);
                     builder.Add("#endregion");
                 }

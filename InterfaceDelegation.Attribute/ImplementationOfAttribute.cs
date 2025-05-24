@@ -6,7 +6,7 @@ namespace Macaron.InterfaceDelegation;
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = true)]
 public sealed class ImplementationOfAttribute(
     Type interfaceType,
-    ImplementationMode mode = ImplementationMode.Auto
+    ImplementationMode mode = ImplementationMode.Implicit
 ) : Attribute
 {
     public Type InterfaceType { get; } = interfaceType;

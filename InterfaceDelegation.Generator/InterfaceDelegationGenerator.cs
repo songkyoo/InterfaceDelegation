@@ -7,6 +7,7 @@ using Microsoft.CodeAnalysis.Text;
 using static Macaron.InterfaceDelegation.MethodSignatureGenerationHelpers;
 using static Macaron.InterfaceDelegation.MemberComparisonHelpers;
 using static Macaron.InterfaceDelegation.SourceGenerationHelpers;
+using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
@@ -25,8 +26,8 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
     #region Types
     private sealed record GenerationContext(
-        ISymbol FieldOrPropertySymbol,
-        INamedTypeSymbol InterfaceSymbol,
+        ISymbol MemberSymbol,
+        INamedTypeSymbol InterfaceTypeSymbol,
         string Mode
     );
     #endregion
@@ -60,11 +61,11 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (constructorArguments[0].Value is INamedTypeSymbol interfaceSymbol)
+            if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
             {
                 builder.Add(new GenerationContext(
-                    FieldOrPropertySymbol: memberSymbol,
-                    InterfaceSymbol: interfaceSymbol,
+                    MemberSymbol: memberSymbol,
+                    InterfaceTypeSymbol: interfaceTypeSymbol,
                     Mode: GetImplementationMode(constructorArguments)
                 ));
             }
@@ -95,36 +96,38 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     {
         var (
             memberSymbol,
-            interfaceSymbol,
+            interfaceTypeSymbol,
             mode
         ) = context;
 
-        var memberType = memberSymbol switch
+        var memberTypeSymbol = memberSymbol switch
         {
             IFieldSymbol fieldSymbol => fieldSymbol.Type,
             IPropertySymbol propertySymbol => propertySymbol.Type,
             IParameterSymbol parameterSymbol => parameterSymbol.Type,
             _ => throw new InvalidOperationException($"Unexpected symbol type: {memberSymbol.GetType().Name}"),
         };
-        var isMemberImplementingInterface = IsImplementingInterface(memberType, interfaceSymbol);
+        var isMemberImplementingInterface = IsImplementingInterface(memberTypeSymbol, interfaceTypeSymbol);
 
-        var classSymbol = memberSymbol.ContainingType;
-        var className = classSymbol.Name;
+        var typeSymbol = memberSymbol.ContainingType;
+        var typeName = typeSymbol.Name;
         var memberName = memberSymbol.Name;
 
+        var interfaceTypeString = interfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat);
+
         var isField = memberSymbol is IFieldSymbol;
-        var getImplementedMember = BuildMemberComparer(classSymbol, interfaceSymbol);
+        var getImplementedMember = BuildMemberComparer(typeSymbol, interfaceTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in interfaceSymbol.GetMembers())
+        foreach (var symbol in interfaceTypeSymbol.GetMembers())
         {
             var (
                 hasImplementedMember,
                 isExplicit,
                 isAbstract
             ) = GetImplementationContext(
-                mode: symbol.Name == className ? Explicit : mode,
-                containingTypeSymbol: classSymbol,
+                mode: symbol.Name == typeName ? Explicit : mode,
+                containingTypeSymbol: typeSymbol,
                 implicitMemberSymbol: getImplementedMember(symbol, false),
                 explicitMemberSymbol: getImplementedMember(symbol, true)
             );
@@ -137,13 +140,23 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             var accessibility = isExplicit ? "" : "public ";
             var @override = isAbstract ? "override " : "";
             var @interface = isExplicit
-                ? $"{interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}."
+                ? $"{interfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
                 : "";
 
             if (symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } methodSymbol)
             {
-                var returnType = methodSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var genericParameterNames = methodSymbol.TypeParameters.Length > 0
+                    ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
+                    : "";
+                var genericParameterConstraints = methodSymbol
+                    .TypeParameters
+                    .Select(GetTypeParameterConstraintClause)
+                    .Where(static constraint => constraint.Length > 0)
+                    .ToImmutableArray();
+
+                var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat);
                 var methodName = methodSymbol.Name;
+                var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
                 var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
                 var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
 
@@ -152,9 +165,15 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add("");
                 }
 
+                builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}{genericParameters}({parameters})");
+
+                foreach (var constraint in genericParameterConstraints)
+                {
+                    builder.Add($"{Space}{constraint}");
+                }
+
                 if (isMemberImplementingInterface)
                 {
-                    builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}({parameters})");
                     builder.Add($"{{");
 
                     if (isField)
@@ -162,19 +181,19 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(ref {memberName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
                         builder.Add($"");
                         builder.Add($"{Space}#region Local Functions");
-                        builder.Add($"{Space}static {returnType} __{methodName}<T>(ref T value{(parameters.Length > 0 ? $", {parameters}" : "")}) where T : {interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} => value.{methodName}({arguments});");
+                        builder.Add($"{Space}static {returnType} __{methodName}<__T>(ref __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {interfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
                         builder.Add($"{Space}#endregion");
                     }
                     else
                     {
-                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){memberName}).{methodName}({(arguments.Length > 0 ? $"{arguments}" : "")});");
+                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({interfaceTypeString}){memberName}).{methodName}({(arguments.Length > 0 ? $"{arguments}" : "")});");
                     }
 
                     builder.Add($"}}");
                 }
                 else
                 {
-                    builder.Add($"{accessibility}{@override}{returnType} {@interface}{methodName}({parameters}) => {memberName}.{methodName}({arguments});");
+                    builder.Add($"{Space}=> {memberName}.{methodName}{genericParameters}({arguments});");
                 }
             }
             else if (symbol is IPropertySymbol propertySymbol)
@@ -189,7 +208,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add("");
                 }
 
-                var propertyType = propertySymbol.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var propertyType = propertySymbol.Type.ToDisplayString(FullyQualifiedFormat);
                 var propertyName = propertySymbol.Name;
 
                 if (propertySymbol.IsIndexer)
@@ -211,13 +230,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                                 builder.Add($"{Space}{Space}return __Get(ref {memberName}, {arguments});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static {propertyType} __Get<T>(ref T impl, {parameters}) where T : {interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} => impl[{arguments}];");
+                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl, {parameters}) where __TImpl : {interfaceTypeString} => __impl[{arguments}];");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
                             else
                             {
-                                builder.Add($"{Space}get => (({interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){memberName})[{arguments}];");
+                                builder.Add($"{Space}get => (({interfaceTypeString}){memberName})[{arguments}];");
                             }
                         }
                         else
@@ -237,13 +256,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                                 builder.Add($"{Space}{Space}__Set(ref {memberName}, {arguments}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static void __Set<T>(ref T impl, {parameters}, {propertyType} value) where T : {interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} => impl[{arguments}] = value;");
+                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {parameters}, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl[{arguments}] = value;");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
                             else
                             {
-                                builder.Add($"{Space}set => (({interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){memberName})[{arguments}] = value;");
+                                builder.Add($"{Space}set => (({interfaceTypeString}){memberName})[{arguments}] = value;");
                             }
                         }
                         else
@@ -270,13 +289,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                                 builder.Add($"{Space}{Space}return __Get(ref {memberName});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static {propertyType} __Get<T>(ref T impl) where T : {interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} => impl.{propertyName};");
+                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl) where __TImpl : {interfaceTypeString} => __impl.{propertyName};");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
                             else
                             {
-                                builder.Add($"{Space}get => (({interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){memberName}).{propertyName};");
+                                builder.Add($"{Space}get => (({interfaceTypeString}){memberName}).{propertyName};");
                             }
                         }
                         else
@@ -296,13 +315,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                                 builder.Add($"{Space}{Space}__Set(ref {memberName}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static void __Set<T>(ref T impl, {propertyType} value) where T : {interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} => impl.{propertyName} = value;");
+                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl.{propertyName} = value;");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
                             else
                             {
-                                builder.Add($"{Space}set => (({interfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){memberName}).{propertyName} = value;");
+                                builder.Add($"{Space}set => (({interfaceTypeString}){memberName}).{propertyName} = value;");
                             }
                         }
                         else
@@ -460,7 +479,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(valuesProvider.Collect(), (sourceProductionContext, generationContexts) =>
         {
             foreach (var pair in generationContexts.GroupBy(
-                keySelector: generationContext => generationContext.FieldOrPropertySymbol.ContainingType,
+                keySelector: generationContext => generationContext.MemberSymbol.ContainingType,
                 comparer: SymbolEqualityComparer.Default
             ))
             {
@@ -479,7 +498,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         builder.Add("");
                     }
 
-                    builder.Add($"#region Implementation of {generationContext.InterfaceSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
+                    builder.Add($"#region Implementation of {generationContext.InterfaceTypeSymbol.ToDisplayString(FullyQualifiedFormat)}");
                     builder.AddRange(lines);
                     builder.Add("#endregion");
                 }

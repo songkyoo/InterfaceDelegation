@@ -1,5 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 
+using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
+
 namespace Macaron.InterfaceDelegation;
 
 public class MethodSignatureGenerationHelpers
@@ -7,7 +9,7 @@ public class MethodSignatureGenerationHelpers
     public static string GetParameterString(IParameterSymbol parameterSymbol)
     {
         var modifiersString = GetParameterModifierString(parameterSymbol);
-        var typeString = parameterSymbol.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var typeString = parameterSymbol.Type.ToDisplayString(FullyQualifiedFormat);
         var nullabilityString = GetNullableAnnotationString(parameterSymbol, typeString);
         var nameString = parameterSymbol.Name;
 
@@ -32,6 +34,43 @@ public class MethodSignatureGenerationHelpers
         };
 
         return $"{prefix}{parameterSymbol.Name}";
+    }
+
+    public static string GetTypeParameterConstraintClause(ITypeParameterSymbol typeParameter)
+    {
+        var constraints = new List<string>();
+
+        if (typeParameter.HasReferenceTypeConstraint)
+        {
+            constraints.Add("class");
+        }
+
+        if (typeParameter.HasUnmanagedTypeConstraint)
+        {
+            constraints.Add("unmanaged");
+        }
+
+        if (typeParameter.HasValueTypeConstraint)
+        {
+            constraints.Add("struct");
+        }
+
+        foreach (var constraintType in typeParameter.ConstraintTypes)
+        {
+            constraints.Add(constraintType.ToDisplayString(FullyQualifiedFormat));
+        }
+
+        if (typeParameter.HasConstructorConstraint)
+        {
+            constraints.Add("new()");
+        }
+
+        if (typeParameter.HasNotNullConstraint)
+        {
+            constraints.Add("not null");
+        }
+
+        return constraints.Count == 0 ? "" : $"where {typeParameter.Name} : {string.Join(", ", constraints)}";
     }
 
     private static string GetParameterModifierString(IParameterSymbol parameterSymbol)

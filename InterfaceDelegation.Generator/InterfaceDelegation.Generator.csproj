@@ -25,7 +25,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\InterfaceDelegation.Attribute\InterfaceDelegation.Attribute.csproj" />
+    <ProjectReference Include="..\InterfaceDelegation.Core\InterfaceDelegation.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework) == 'netstandard2.0'">

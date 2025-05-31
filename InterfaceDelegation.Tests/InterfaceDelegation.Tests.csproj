@@ -19,7 +19,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\InterfaceDelegation.Attribute\InterfaceDelegation.Attribute.csproj" />
+    <ProjectReference Include="..\InterfaceDelegation.Core\InterfaceDelegation.Core.csproj" />
     <ProjectReference Include="..\InterfaceDelegation.Generator\InterfaceDelegation.Generator.csproj" />
   </ItemGroup>
 

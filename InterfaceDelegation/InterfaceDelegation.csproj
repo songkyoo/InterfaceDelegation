@@ -9,31 +9,31 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>Macaron.InterfaceDelegation</PackageId>
-    <Version>1.0.3</Version>
     <Authors>Gyu Song</Authors>
+    <PackageId>Macaron.InterfaceDelegation</PackageId>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/songkyoo/InterfaceDelegation</RepositoryUrl>
+    <Version>1.0.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\InterfaceDelegation.Attribute\InterfaceDelegation.Attribute.csproj">
+    <ProjectReference Include="..\InterfaceDelegation.Core\InterfaceDelegation.Core.csproj">
+      <ExcludeAssets>runtime; build; native; contentfiles; analyzers</ExcludeAssets>
+      <IncludeAssets>compile</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-      <IncludeAssets>compile</IncludeAssets>
-      <ExcludeAssets>runtime;build;native;contentfiles;analyzers</ExcludeAssets>
     </ProjectReference>
     <ProjectReference Include="..\InterfaceDelegation.Generator\InterfaceDelegation.Generator.csproj">
+      <ExcludeAssets>runtime; build; native; contentfiles; analyzers</ExcludeAssets>
+      <IncludeAssets>compile</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
       <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-      <IncludeAssets>compile</IncludeAssets>
-      <ExcludeAssets>runtime;build;native;contentfiles;analyzers</ExcludeAssets>
     </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\InterfaceDelegation.Attribute\bin\Release\netstandard2.0\InterfaceDelegation.Attribute.dll" Pack="true" PackagePath="lib/netstandard2.0" />
+    <None Include="..\InterfaceDelegation.Core\bin\Release\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="lib/netstandard2.0" />
     <None Include="..\InterfaceDelegation.Generator\bin\Release\netstandard2.0\InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" />
   </ItemGroup>
 

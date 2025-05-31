@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceDelegation.Generat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceDelegation.Tests", "InterfaceDelegation.Tests\InterfaceDelegation.Tests.csproj", "{73396E5E-835A-45C6-BD57-F75CD641558B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceDelegation.Attribute", "InterfaceDelegation.Attribute\InterfaceDelegation.Attribute.csproj", "{4B34DD39-B6BD-4FCF-8417-D4D777F1A1CF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceDelegation.Core", "InterfaceDelegation.Core\InterfaceDelegation.Core.csproj", "{4B34DD39-B6BD-4FCF-8417-D4D777F1A1CF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterfaceDelegation", "InterfaceDelegation\InterfaceDelegation.csproj", "{505A2449-F4C6-4CA8-9305-7C3235480012}"
 EndProject

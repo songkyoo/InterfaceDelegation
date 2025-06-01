@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Macaron.InterfaceDelegation</RootNamespace>
@@ -18,23 +19,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\InterfaceDelegation.Core\InterfaceDelegation.Core.csproj">
-      <ExcludeAssets>runtime; build; native; contentfiles; analyzers</ExcludeAssets>
-      <IncludeAssets>compile</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-    </ProjectReference>
-    <ProjectReference Include="..\InterfaceDelegation.Generator\InterfaceDelegation.Generator.csproj">
-      <ExcludeAssets>runtime; build; native; contentfiles; analyzers</ExcludeAssets>
-      <IncludeAssets>compile</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-      <ReferenceOutputAssembly>true</ReferenceOutputAssembly>
-    </ProjectReference>
+    <ProjectReference Include="..\InterfaceDelegation.Core\InterfaceDelegation.Core.csproj" PrivateAssets="all" />
+    <ProjectReference Include="..\InterfaceDelegation.Generator\InterfaceDelegation.Generator.csproj" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\InterfaceDelegation.Core\bin\Release\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="lib/netstandard2.0" />
-    <None Include="..\InterfaceDelegation.Generator\bin\Release\netstandard2.0\InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs/" />
+    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="lib/netstandard2.0" />
+    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
+    <None Include="..\InterfaceDelegation.Generator\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
   </ItemGroup>
 
 </Project>

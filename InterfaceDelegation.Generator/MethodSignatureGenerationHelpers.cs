@@ -1,5 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxKind;
+
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
@@ -12,8 +15,9 @@ public class MethodSignatureGenerationHelpers
         var typeString = parameterSymbol.Type.ToDisplayString(FullyQualifiedFormat);
         var nullabilityString = GetNullableAnnotationString(parameterSymbol, typeString);
         var nameString = parameterSymbol.Name;
+        var defaultValueString = GetParameterDefaultValueString(parameterSymbol);
 
-        return $"{modifiersString}{typeString}{nullabilityString} {nameString}";
+        return $"{modifiersString}{typeString}{nullabilityString} {nameString}{defaultValueString}";
 
         #region Local Functions
         static string GetNullableAnnotationString(IParameterSymbol parameterSymbol, string typeString) =>
@@ -83,5 +87,60 @@ public class MethodSignatureGenerationHelpers
             { IsParams: true } => "params ",
             _ => "",
         };
+    }
+
+    private static string GetParameterDefaultValueString(IParameterSymbol parameterSymbol)
+    {
+        if (!parameterSymbol.HasExplicitDefaultValue)
+        {
+            return "";
+        }
+
+        var defaultValue = parameterSymbol.ExplicitDefaultValue;
+
+        if (defaultValue == null)
+        {
+            var parameterType = parameterSymbol.Type;
+            return !parameterType.IsValueType || parameterType.NullableAnnotation == NullableAnnotation.Annotated
+                ? " = null"
+                : " = default";
+        }
+
+        if (parameterSymbol.Type.TypeKind == TypeKind.Enum)
+        {
+            var enumType = parameterSymbol.Type;
+            var fullyQualifiedEnumName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+            foreach (var fieldSymbol in enumType.GetMembers().OfType<IFieldSymbol>())
+            {
+                if (fieldSymbol.HasConstantValue && fieldSymbol.ConstantValue.Equals(defaultValue))
+                {
+                    return $" = {fullyQualifiedEnumName}.{fieldSymbol.Name}";
+                }
+            }
+
+            return $" = ({fullyQualifiedEnumName})({defaultValue})";
+        }
+
+        var literalExpression = defaultValue switch
+        {
+            string value => LiteralExpression(StringLiteralExpression, Literal(value)),
+            char value => LiteralExpression(CharacterLiteralExpression, Literal(value)),
+            bool value => LiteralExpression(value ? TrueLiteralExpression : FalseLiteralExpression),
+            byte value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            sbyte value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            short value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            ushort value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            int value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            uint value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            long value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            ulong value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            float value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            double value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            decimal value => LiteralExpression(NumericLiteralExpression, Literal(value)),
+            _ => null,
+        };
+
+        return $" = {literalExpression?.ToFullString() ?? "default"}";
     }
 }

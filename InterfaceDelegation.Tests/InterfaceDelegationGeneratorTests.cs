@@ -46,7 +46,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ImplementationOfAttributeOnField()
+    public void GeneratesDelegation_When_ImplementationOfAppliedToField()
     {
         Assert(
             sourceCode:
@@ -90,7 +90,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ImplementationOfAttributeOnProperty()
+    public void GeneratesDelegation_When_ImplementationOfAppliedToProperty()
     {
         Assert(
             sourceCode:
@@ -134,7 +134,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void MultipleImplementationOfAttributesOnSingleMember()
+    public void GeneratesDelegation_ForMultipleInterfaces_OnSingleMember()
     {
         Assert(
             sourceCode:
@@ -191,7 +191,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void MultipleImplementationOfAttributesOnInterfaceImplementedSingleMember()
+    public void GeneratesExplicitDelegation_ForMultipleInterfaces_OnSingleMember()
     {
         Assert(
             sourceCode:
@@ -301,7 +301,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void MultipleImplementationOfAttributesOnMultipleMembers()
+    public void GeneratesDelegation_ForMultipleInterfaces_OnSeparateMembers()
     {
         Assert(
             sourceCode:
@@ -360,7 +360,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void InterfaceHasPropertiesAndIndexer()
+    public void GeneratesDelegation_ForPropertiesAndIndexer()
     {
         Assert(
             sourceCode:
@@ -432,7 +432,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void InterfaceHasMethodOverloads()
+    public void GeneratesDelegation_ForOverloadedMethods()
     {
         Assert(
             sourceCode:
@@ -483,7 +483,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void DelegationInStruct()
+    public void GeneratesDelegation_InStructType()
     {
         Assert(
             sourceCode:
@@ -532,7 +532,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void DelegationInRecord()
+    public void GeneratesDelegation_InRecordType()
     {
         Assert(
             sourceCode:
@@ -574,7 +574,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void DelegationInStructRecord()
+    public void GeneratesDelegation_InRecordStructType()
     {
         Assert(
             sourceCode:
@@ -616,7 +616,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialImplicitImplementationExistsWithAutoMode()
+    public void SkipsAlreadyImplementedImplicitMembers_When_UsingAutoMode()
     {
         Assert(
             sourceCode:
@@ -666,7 +666,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialExplicitImplementationExistsWithAutoMode()
+    public void SkipsAlreadyImplementedExplicitMembers_When_UsingAutoMode()
     {
         Assert(
             sourceCode:
@@ -716,7 +716,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ImplicitImplementationMode()
+    public void GeneratesFullDelegation_When_UsingImplicitMode()
     {
         Assert(
             sourceCode:
@@ -767,7 +767,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialImplicitImplementationExistsWithImplicitMode()
+    public void SkipsAlreadyImplementedImplicitMembers_When_UsingImplicitMode()
     {
         Assert(
             sourceCode:
@@ -817,7 +817,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialExplicitImplementationExistsWithImplicitMode()
+    public void SkipsAlreadyImplementedExplicitMembers_When_UsingImplicitMode()
     {
         Assert(
             sourceCode:
@@ -867,7 +867,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ExplicitImplementationMode()
+    public void GeneratesExplicitDelegation_When_UsingExplicitMode()
     {
         Assert(
             sourceCode:
@@ -911,7 +911,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialExplicitImplementationExistsWithExplicitMode()
+    public void SkipsAlreadyImplementedExplicitMembers_When_UsingExplicitMode()
     {
         Assert(
             sourceCode:
@@ -961,7 +961,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void PartialImplicitImplementationExistsWithExplicitMode()
+    public void GeneratesExplicitDelegation_EvenIfImplicitExists()
     {
         Assert(
             sourceCode:
@@ -1014,7 +1014,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void HasAbstractMember()
+    public void SkipsAbstractMembers_InSameClass_When_GeneratingDelegation()
     {
         Assert(
             sourceCode:
@@ -1064,7 +1064,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void HasAbstractMemberInParent()
+    public void GeneratesOverride_ForAbstractMembers_InBaseClass()
     {
         Assert(
             sourceCode:
@@ -1124,7 +1124,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void HasOverrideMember()
+    public void SkipsOverriddenMembers_InCurrentClass_When_GeneratingDelegation()
     {
         Assert(
             sourceCode:
@@ -1187,7 +1187,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void InterfaceMethodHasGenericParameters()
+    public void GeneratesDelegation_ForGenericMethod()
     {
         Assert(
             sourceCode:
@@ -1232,7 +1232,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void LiftAttributeIgnores()
+    public void IgnoresNonLiftableMembers_When_UsingLiftAttribute()
     {
         Assert(
             sourceCode:

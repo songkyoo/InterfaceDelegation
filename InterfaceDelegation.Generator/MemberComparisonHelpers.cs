@@ -5,7 +5,7 @@ namespace Macaron.InterfaceDelegation;
 
 public static class MemberComparisonHelpers
 {
-    public static Func<ISymbol, bool, ISymbol?> BuildMemberComparer(
+    public static Func<ISymbol, string, bool, bool, ISymbol?> BuildMemberComparer(
         ITypeSymbol typeSymbol,
         ITypeSymbol interfaceSymbol
     )
@@ -58,27 +58,27 @@ public static class MemberComparisonHelpers
         var propertySymbolsDict = ToDictionary(propertySymbols, propertySymbol => propertySymbol.Name);
         var explicitPropertySymbolsDict = ToDictionary(explicitPropertySymbols, propertySymbol => propertySymbol.Name);
 
-        return (symbol, isExplicit) =>
+        return (symbol, symbolName, isExplicit, checkReturnType) =>
         {
             if (symbol is IMethodSymbol methodSymbol)
             {
                 var dict = isExplicit ? explicitMethodSymbolsDict : methodSymbolsDict;
-                if (dict.TryGetValue(methodSymbol.Name, out var symbols))
+                if (dict.TryGetValue(symbolName, out var symbols))
                 {
                     return symbols.FirstOrDefault(methodSymbol2 =>
                     {
-                        return MatchesMethodSignature(methodSymbol2, methodSymbol);
+                        return MatchesMethodSignature(methodSymbol, symbolName, methodSymbol2, checkReturnType);
                     });
                 }
             }
             else if (symbol is IPropertySymbol propertySymbol)
             {
                 var dict = isExplicit ? explicitPropertySymbolsDict : propertySymbolsDict;
-                if (dict.TryGetValue(propertySymbol.Name, out var symbols))
+                if (dict.TryGetValue(symbolName, out var symbols))
                 {
                     return symbols.FirstOrDefault(propertySymbol2 =>
                     {
-                        return MatchesPropertySignature(propertySymbol2, propertySymbol);
+                        return MatchesPropertySignature(propertySymbol, symbolName, propertySymbol2);
                     });
                 }
             }
@@ -121,41 +121,46 @@ public static class MemberComparisonHelpers
         }
     }
 
-    private static bool MatchesMethodSignature(IMethodSymbol method1, IMethodSymbol method2)
+    private static bool MatchesMethodSignature(
+        IMethodSymbol methodSymbol,
+        string methodName,
+        IMethodSymbol targetMethodSymbol,
+        bool checkReturnType
+    )
     {
         var comparer = SymbolEqualityComparer.Default;
 
-        if (method1.Name != method2.Name)
+        if (methodName != targetMethodSymbol.Name)
         {
             return false;
         }
 
-        if (!comparer.Equals(method1.ReturnType, method2.ReturnType))
+        if (checkReturnType && !comparer.Equals(methodSymbol.ReturnType, targetMethodSymbol.ReturnType))
         {
             return false;
         }
 
-        if (method1.Parameters.Length != method2.Parameters.Length)
+        if (methodSymbol.Parameters.Length != targetMethodSymbol.Parameters.Length)
         {
             return false;
         }
 
-        for (var i = 0; i < method1.Parameters.Length; i++)
+        for (var i = 0; i < methodSymbol.Parameters.Length; i++)
         {
-            var paramSymbol1 = method1.Parameters[i];
-            var paramSymbol2 = method2.Parameters[i];
+            var paramSymbol = methodSymbol.Parameters[i];
+            var targetParamSymbol = targetMethodSymbol.Parameters[i];
 
-            if (!comparer.Equals(paramSymbol1.Type, paramSymbol2.Type))
+            if (!comparer.Equals(paramSymbol.Type, targetParamSymbol.Type))
             {
                 return false;
             }
 
-            if (paramSymbol1.RefKind != paramSymbol2.RefKind)
+            if (paramSymbol.RefKind != targetParamSymbol.RefKind)
             {
                 return false;
             }
 
-            if (paramSymbol1.IsParams != paramSymbol2.IsParams)
+            if (paramSymbol.IsParams != targetParamSymbol.IsParams)
             {
                 return false;
             }
@@ -164,9 +169,15 @@ public static class MemberComparisonHelpers
         return true;
     }
 
-    private static bool MatchesPropertySignature(IPropertySymbol property1, IPropertySymbol property2)
+    private static bool MatchesPropertySignature(
+        IPropertySymbol propertySymbol,
+        string propertyName,
+        IPropertySymbol targetPropertySymbol
+    )
     {
         var comparer = SymbolEqualityComparer.Default;
-        return property1.Name == property2.Name && comparer.Equals(property1.Type, property2.Type);
+        return
+            propertyName.Equals(targetPropertySymbol.Name) &&
+            comparer.Equals(propertySymbol.Type, targetPropertySymbol.Type);
     }
 }

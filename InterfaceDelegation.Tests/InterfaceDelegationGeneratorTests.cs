@@ -1232,23 +1232,44 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ForwardAttributeIgnoreNonPublicMember()
+    public void LiftAttributeIgnores()
     {
         Assert(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
 
-            public sealed class Foo
+            // 베이스 클래스 항목은 무시됨
+            public class Base
             {
+                public int BaseValue { get; }
+
+                public void BaseMethod() { }
+
+                public virtual void BaseVirtualMethod() { }
+            }
+
+            public class Foo : Base
+            {
+                // 인덱서는 무시됨
+                public int this[int index]
+                {
+                    get => 0;
+                    set => { }
+                }
+
                 public int GetAnswer<T>() where T : class => 42;
 
-                int GetAnswer() => 42;
+                // 오버라이드 멤버는 무시됨
+                public override void BaseVirtualMethod() { }
+
+                // public인 아닌 멤버는 무시됨
+                protected int GetAnswer() => 42;
             }
 
             public partial class Bar
             {
-                [Forward]
+                [Lift]
                 private readonly Foo _impl = new();
             }
             """,

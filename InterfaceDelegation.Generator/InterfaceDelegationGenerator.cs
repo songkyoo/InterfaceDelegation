@@ -17,10 +17,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     #region Constants
     private const string Implicit = nameof(ImplementationMode.Implicit);
     private const string Explicit = nameof(ImplementationMode.Explicit);
-    private const string Forward = nameof(Forward);
+    private const string Lift = nameof(Lift);
 
     private const string ImplementationOfAttributeString = "Macaron.InterfaceDelegation.ImplementationOfAttribute";
-    private const string ForwardAttributeString = "Macaron.InterfaceDelegation.ForwardAttribute";
+    private const string LiftAttributeString = "Macaron.InterfaceDelegation.LiftAttribute";
 
     private const string Space = "    ";
     #endregion
@@ -33,8 +33,21 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     );
     #endregion
 
+    #region Diagnostic Descriptors
+    private static readonly DiagnosticDescriptor InvalidImplementationTargetRule = new(
+        id: "MAID0001",
+        title: "ImplementationOf attribute requires a non-generic interface type",
+        messageFormat: "'{0}' is not a valid type for the ImplementationOf attribute. Only non-generic interfaces are allowed.",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+    #endregion
+
     #region Static
-    private static ImmutableArray<GenerationContext> GetGenerationContext(GeneratorSyntaxContext context)
+    private static ImmutableArray<(GenerationContext, ImmutableArray<Diagnostic>)> GetGenerationContexts(
+        GeneratorSyntaxContext context
+    )
     {
         var declaredSymbol = context.Node switch
         {
@@ -47,12 +60,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             declaredSymbol is IPropertySymbol { Type.IsValueType: true }
         )
         {
-            return ImmutableArray<GenerationContext>.Empty;
+            return ImmutableArray<(GenerationContext, ImmutableArray<Diagnostic>)>.Empty;
         }
 
-        var builder = ImmutableArray.CreateBuilder<GenerationContext>();
+        var builder = ImmutableArray.CreateBuilder<(GenerationContext, ImmutableArray<Diagnostic>)>();
         foreach (var attributeData in declaredSymbol.GetAttributes())
         {
+            var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
+
             var constructorArguments = attributeData.ConstructorArguments;
             var attributeString = attributeData.AttributeClass?.ToDisplayString();
 
@@ -62,22 +77,33 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 {
                     if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsGenericType)
                     {
+                        diagnosticsBuilder.Add(Diagnostic.Create(
+                            descriptor: InvalidImplementationTargetRule,
+                            location: attributeData.ApplicationSyntaxReference?.GetSyntax().GetLocation(),
+                            messageArgs: [interfaceTypeSymbol.ToDisplayString()]
+                        ));
                         continue;
                     }
 
-                    builder.Add(new GenerationContext(
-                        DeclaredSymbol: declaredSymbol,
-                        DelegationTypeSymbol: interfaceTypeSymbol,
-                        Mode: GetImplementationMode(constructorArguments)
+                    builder.Add((
+                        new GenerationContext(
+                            DeclaredSymbol: declaredSymbol,
+                            DelegationTypeSymbol: interfaceTypeSymbol,
+                            Mode: GetImplementationMode(constructorArguments)
+                        ),
+                        diagnosticsBuilder.ToImmutable()
                     ));
                 }
             }
-            else if (attributeString == ForwardAttributeString)
+            else if (attributeString == LiftAttributeString)
             {
-                builder.Add(new GenerationContext(
-                    DeclaredSymbol: declaredSymbol,
-                    DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
-                    Mode: Forward
+                builder.Add((
+                    new GenerationContext(
+                        DeclaredSymbol: declaredSymbol,
+                        DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
+                        Mode: Lift
+                    ),
+                    diagnosticsBuilder.ToImmutable()
                 ));
             }
         }
@@ -110,16 +136,16 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             mode
         ) = context;
 
-        var isForwardMode = mode == Forward;
+        var isLiftMode = mode == Lift;
         var isMemberImplementingInterface =
-            !isForwardMode && IsImplementingInterface(GetDeclaredSymbolType(declaredSymbol), delegationTypeSymbol);
+            !isLiftMode && IsImplementingInterface(GetDeclaredSymbolType(declaredSymbol), delegationTypeSymbol);
         var isField = declaredSymbol is IFieldSymbol;
 
         var typeSymbol = declaredSymbol.ContainingType;
 
         var typeName = typeSymbol.Name;
         var declaredSymbolName = declaredSymbol.Name;
-        var interfaceTypeString = isForwardMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat);
+        var interfaceTypeString = isLiftMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat);
 
         var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -131,9 +157,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (isForwardMode && symbol.DeclaredAccessibility != Accessibility.Public)
+            if (isLiftMode)
             {
-                continue;
+                if (symbol.DeclaredAccessibility != Accessibility.Public ||
+                    symbol.ContainingType.Equals(delegationTypeSymbol, SymbolEqualityComparer.Default) is false
+                )
+                {
+                    continue;
+                }
             }
 
             var (
@@ -142,7 +173,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 isAbstract
             ) = GetImplementationContext(
                 mode:
-                    isForwardMode ? Forward :
+                    isLiftMode ? Lift :
                     symbol.Name == typeName ? Explicit :
                     mode,
                 containingTypeSymbol: typeSymbol,
@@ -163,6 +194,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             if (symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } methodSymbol)
             {
+                if (isLiftMode)
+                {
+                    if (methodSymbol is not { IsImplicitlyDeclared: false, IsOverride: false })
+                    {
+                        continue;
+                    }
+                }
+
                 var genericParameterNames = methodSymbol.TypeParameters.Length > 0
                     ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
                     : "";
@@ -216,9 +255,21 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             }
             else if (symbol is IPropertySymbol propertySymbol)
             {
-                if (propertySymbol.SetMethod?.IsInitOnly is true)
+                var isInitOnly = propertySymbol.SetMethod?.IsInitOnly is true;
+
+                if (isLiftMode)
                 {
-                    continue;
+                    if (propertySymbol.IsIndexer)
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (isInitOnly)
+                    {
+                        continue;
+                    }
                 }
 
                 if (builder.Count > 0)
@@ -322,7 +373,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         }
                     }
 
-                    if (propertySymbol.SetMethod != null)
+                    if (propertySymbol.SetMethod != null && !isInitOnly)
                     {
                         if (isMemberImplementingInterface)
                         {
@@ -379,7 +430,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 Explicit => explicitMemberSymbol == null
                     ? defaultValue with { isExplicit = true }
                     : defaultValue with { hasImplementedMember = true },
-                Forward => implicitMemberSymbol switch
+                Lift => implicitMemberSymbol switch
                 {
                     null => defaultValue,
                     { IsAbstract: true } => defaultValue with { isAbstract = true },
@@ -494,25 +545,30 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     #region IIncrementalGenerator Interface
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        IncrementalValuesProvider<GenerationContext> valuesProvider = context
+        IncrementalValuesProvider<(GenerationContext, ImmutableArray<Diagnostic>)> valuesProvider = context
             .SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (syntaxNode, _) => IsCandidateMember(syntaxNode),
-                transform: static (generatorSyntaxContext, _) => GetGenerationContext(generatorSyntaxContext)
+                transform: static (generatorSyntaxContext, _) => GetGenerationContexts(generatorSyntaxContext)
             )
             .SelectMany(static (generationContexts, _) => generationContexts);
 
         context.RegisterSourceOutput(valuesProvider.Collect(), (sourceProductionContext, generationContexts) =>
         {
             foreach (var pair in generationContexts.GroupBy(
-                keySelector: generationContext => generationContext.DeclaredSymbol.ContainingType,
+                keySelector: generationContext => generationContext.Item1.DeclaredSymbol.ContainingType,
                 comparer: SymbolEqualityComparer.Default
             ))
             {
                 var builder = ImmutableArray.CreateBuilder<string>();
 
-                foreach (var generationContext in pair)
+                foreach (var (generationContext, diagnostics) in pair)
                 {
+                    foreach (var diagnostic in diagnostics)
+                    {
+                        sourceProductionContext.ReportDiagnostic(diagnostic);
+                    }
+
                     var lines = GenerateDelegationCode(generationContext);
                     if (lines.IsEmpty)
                     {

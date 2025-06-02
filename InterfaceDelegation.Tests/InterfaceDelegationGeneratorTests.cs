@@ -42,7 +42,7 @@ public class InterfaceDelegationGeneratorTests
         var generatedSources = result.GeneratedSources;
         var actual = generatedSources.Length > 0 ? generatedSources[0].SourceText.ToString() : "";
 
-        NUnit.Framework.Assert.That(actual, Is.EqualTo(expected));
+        NUnit.Framework.Assert.That(actual.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
     }
 
     [Test]

@@ -120,7 +120,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             {
                 if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
                 {
-                    if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsGenericType)
+                    if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsUnboundGenericType)
                     {
                         diagnosticsBuilder.Add(Diagnostic.Create(
                             descriptor: InvalidImplementationTargetRule,

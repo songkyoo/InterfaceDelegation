@@ -30,23 +30,26 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
     #region Types
     private abstract record GenerationContext(
+        AttributeData Attribute,
         ISymbol DeclaredSymbol,
         ITypeSymbol DelegationTypeSymbol
     );
 
     private sealed record GenerationInterfaceContext(
+        AttributeData Attribute,
         ISymbol DeclaredSymbol,
         ITypeSymbol DelegationTypeSymbol,
         ImplementationMode Mode
-    ) : GenerationContext(DeclaredSymbol, DelegationTypeSymbol);
+    ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);
 
     private sealed record GenerationLiftContext(
+        AttributeData Attribute,
         ISymbol DeclaredSymbol,
         ITypeSymbol DelegationTypeSymbol,
         ImmutableHashSet<string> Filter,
         ImmutableHashSet<string> Remove,
         ImmutableDictionary<string, string> Rename
-    ) : GenerationContext(DeclaredSymbol, DelegationTypeSymbol);
+    ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);
     #endregion
 
     #region Diagnostic Descriptors
@@ -54,6 +57,22 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         id: "MAID0001",
         title: "ImplementationOf attribute requires a non-generic interface type",
         messageFormat: "'{0}' is not a valid type for the ImplementationOf attribute. Only non-generic interfaces are allowed.",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+    private static readonly DiagnosticDescriptor ValueTypePropertyCannotBeDelegatedRule = new(
+        id: "MAID0002",
+        title: "Value type property cannot be delegated",
+        messageFormat: "Property '{0}' is of a value type and cannot be delegated using ImplementationOf.",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+    private static readonly DiagnosticDescriptor DuplicateDelegationTargetRule = new(
+        id: "MAID0003",
+        title: "Duplicate ImplementationOf target",
+        messageFormat: "The interface '{0}' is delegated more than once in the same type.",
         category: "Usage",
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -72,11 +91,21 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             ParameterSyntax decl => GetDeclaredSymbol(decl),
             _ => null,
         };
-        if (declaredSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct ||
-            declaredSymbol is IPropertySymbol { Type.IsValueType: true }
-        )
+        if (declaredSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
         {
             return ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)>.Empty;
+        }
+
+        if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
+        {
+            return ImmutableArray.Create((
+                (GenerationContext?)null,
+                ImmutableArray.Create(Diagnostic.Create(
+                    descriptor: ValueTypePropertyCannotBeDelegatedRule,
+                    location: declaredSymbol.Locations.FirstOrDefault(),
+                    messageArgs: [declaredSymbol.Name]
+                ))
+            ));
         }
 
         var builder = ImmutableArray.CreateBuilder<(GenerationContext?, ImmutableArray<Diagnostic>)>();
@@ -103,6 +132,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
                     builder.Add((
                         new GenerationInterfaceContext(
+                            Attribute: attributeData,
                             DeclaredSymbol: declaredSymbol,
                             DelegationTypeSymbol: interfaceTypeSymbol,
                             Mode: GetImplementationMode(constructorArguments)
@@ -128,6 +158,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             {
                 builder.Add((
                     new GenerationLiftContext(
+                        Attribute: attributeData,
                         DeclaredSymbol: declaredSymbol,
                         DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
                         Filter: GetStringArray(constructorArguments[0]).ToImmutableHashSet(),
@@ -195,6 +226,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     private static ImmutableArray<string> GenerateDelegationCode(GenerationContext context)
     {
         var (
+            _,
             declaredSymbol,
             delegationTypeSymbol
         ) = context;
@@ -639,6 +671,11 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
         context.RegisterSourceOutput(valuesProvider.Collect(), (sourceProductionContext, generationContexts) =>
         {
+            foreach (var diagnostic in generationContexts.SelectMany(tuple => tuple.Item2))
+            {
+                sourceProductionContext.ReportDiagnostic(diagnostic);
+            }
+
             foreach (var pair in generationContexts
                 .Where(generationContext => generationContext.Item1 != null)
                 .Select(generationContext => ((GenerationContext, ImmutableArray<Diagnostic>))generationContext!)
@@ -648,13 +685,22 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 )
             )
             {
+                var delegatedInterfaces = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
                 var builder = ImmutableArray.CreateBuilder<string>();
 
-                foreach (var (generationContext, diagnostics) in pair)
+                foreach (var (generationContext, _) in pair)
                 {
-                    foreach (var diagnostic in diagnostics)
+                    if (generationContext is GenerationInterfaceContext &&
+                        !delegatedInterfaces.Add(generationContext.DelegationTypeSymbol)
+                    )
                     {
-                        sourceProductionContext.ReportDiagnostic(diagnostic);
+                        sourceProductionContext.ReportDiagnostic(Diagnostic.Create(
+                            descriptor: DuplicateDelegationTargetRule,
+                            location: generationContext.Attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation(),
+                            messageArgs: [generationContext.DelegationTypeSymbol]
+                        ));
+
+                        continue;
                     }
 
                     var lines = GenerateDelegationCode(generationContext);

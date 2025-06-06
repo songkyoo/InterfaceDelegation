@@ -7,7 +7,25 @@ namespace Macaron.InterfaceDelegation.Tests;
 [TestFixture]
 public class InterfaceDelegationGeneratorTests
 {
-    private static void Assert(string sourceCode, string expected)
+    private static void AssertGeneratedCode(
+        string sourceCode,
+        string expected,
+        out ImmutableArray<Diagnostic> diagnostics
+    )
+    {
+        (diagnostics, var generatedCode) = CompileAndGetResults(sourceCode);
+
+        Assert.That(generatedCode.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
+    }
+
+    private static void AssertGeneratedCode(string sourceCode, string expected)
+    {
+        var (_, generatedCode) = CompileAndGetResults(sourceCode);
+
+        Assert.That(generatedCode.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
+    }
+
+    private static (ImmutableArray<Diagnostic> diagnostics, string generatedCode) CompileAndGetResults(string sourceCode)
     {
         var attributeAssembly = typeof(ImplementationOfAttribute).Assembly;
         var references = AppDomain
@@ -30,25 +48,24 @@ public class InterfaceDelegationGeneratorTests
             )
         );
 
-        foreach (var diagnostic in compilation.GetDiagnostics())
-        {
-            Console.WriteLine(diagnostic);
-        }
-
         var generator = new InterfaceDelegationGenerator();
         var driver = CSharpGeneratorDriver.Create(generator);
 
         var result = driver.RunGenerators(compilation).GetRunResult().Results.Single();
         var generatedSources = result.GeneratedSources;
-        var actual = generatedSources.Length > 0 ? generatedSources[0].SourceText.ToString() : "";
+        var generatedCode = generatedSources.Length > 0 ? generatedSources[0].SourceText.ToString() : "";
 
-        NUnit.Framework.Assert.That(actual.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
+        var allDiagnostics = compilation.GetDiagnostics()
+            .Concat(result.Diagnostics)
+            .ToImmutableArray();
+
+        return (allDiagnostics, generatedCode);
     }
 
     [Test]
     public void GeneratesDelegation_When_ImplementationOfAppliedToField()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -92,7 +109,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_When_ImplementationOfAppliedToProperty()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -136,7 +153,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForMultipleInterfaces_OnSingleMember()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -193,7 +210,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesExplicitDelegation_ForMultipleInterfaces_OnSingleMember()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -303,7 +320,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForMultipleInterfaces_OnSeparateMembers()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -362,7 +379,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForPropertiesAndIndexer()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -434,7 +451,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForOverloadedMethods()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -485,7 +502,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_InStructType()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -534,7 +551,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_InRecordType()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -576,7 +593,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_InRecordStructType()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -618,7 +635,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAlreadyImplementedImplicitMembers_When_UsingAutoMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -668,7 +685,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAlreadyImplementedExplicitMembers_When_UsingAutoMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -718,7 +735,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesFullDelegation_When_UsingImplicitMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -769,7 +786,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAlreadyImplementedImplicitMembers_When_UsingImplicitMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -819,7 +836,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAlreadyImplementedExplicitMembers_When_UsingImplicitMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -869,7 +886,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesExplicitDelegation_When_UsingExplicitMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -913,7 +930,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAlreadyImplementedExplicitMembers_When_UsingExplicitMode()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -963,7 +980,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesExplicitDelegation_EvenIfImplicitExists()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1016,7 +1033,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsAbstractMembers_InSameClass_When_GeneratingDelegation()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1066,7 +1083,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesOverride_ForAbstractMembers_InBaseClass()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1126,7 +1143,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void SkipsOverriddenMembers_InCurrentClass_When_GeneratingDelegation()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1189,7 +1206,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForGenericMethod()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1234,7 +1251,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void IgnoresNonLiftableMembers_When_UsingLiftAttribute()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1297,7 +1314,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void LiftedMethodPreservesDefaultParametersFromTargetMethod_When_TargetMethodHasDefaultParameters()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             using System;
@@ -1338,7 +1355,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void LiftAttributeOptions_WorksAsExpected()
     {
-        Assert(
+        AssertGeneratedCode(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1392,5 +1409,61 @@ public class InterfaceDelegationGeneratorTests
 
             """
         );
+    }
+
+    [Test]
+    public void ReportsDiagnostic_When_ImplementationOfAppliedToValueTypeProperty()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                int GetValue();
+            }
+
+            public partial class TestClass : IFoo
+            {
+                [ImplementationOf(typeof(IFoo))]
+                private int Impl { get; } = 42;
+            }
+            """;
+
+        var (diagnostics, _) = CompileAndGetResults(sourceCode);
+
+        Assert.That(diagnostics, Has.Some.Matches<Diagnostic>(diagnostic => diagnostic.Id == "MAID0002"));
+    }
+
+    [Test]
+    public void ReportsDiagnostic_When_InterfaceIsDelegatedMoreThanOnce()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Bar();
+            }
+
+            public class FooImpl : IFoo
+            {
+                public void Bar() { }
+            }
+
+            public partial class TestClass : IFoo
+            {
+                [ImplementationOf(typeof(IFoo))]
+                private readonly IFoo _impl1 = new FooImpl();
+
+                [ImplementationOf(typeof(IFoo))]
+                private readonly IFoo _impl2 = new FooImpl();
+            }
+            """;
+
+        var (diagnostics, _) = CompileAndGetResults(sourceCode);
+
+        Assert.That(diagnostics, Has.Some.Matches<Diagnostic>(diagnostic => diagnostic.Id == "MAID0003"));
     }
 }

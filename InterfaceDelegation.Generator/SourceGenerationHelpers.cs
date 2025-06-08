@@ -47,7 +47,7 @@ public class SourceGenerationHelpers
     {
         if (typeSymbol.IsRecord)
         {
-            return typeSymbol.TypeKind is TypeKind.Struct ? "record struct" : "record" ;
+            return typeSymbol.TypeKind is TypeKind.Struct ? "record struct" : "record";
         }
 
         return typeSymbol.TypeKind switch

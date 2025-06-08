@@ -1346,6 +1346,9 @@ public class InterfaceDelegationGeneratorTests
 
                 public int GetAnswer<T>() where T : class => 42;
 
+                // internal은 internal로 리프팅
+                internal int GetAnswer() => 42;
+
                 // 오버라이드 멤버는 무시됨
                 public override void BaseVirtualMethod() { }
 
@@ -1372,6 +1375,9 @@ public class InterfaceDelegationGeneratorTests
                     public int GetAnswer<T>()
                         where T : class
                         => _impl.GetAnswer<T>();
+
+                    internal int GetAnswer()
+                        => _impl.GetAnswer();
                     #endregion
                 }
             }

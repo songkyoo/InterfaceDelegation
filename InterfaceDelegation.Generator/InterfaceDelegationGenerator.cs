@@ -256,7 +256,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             if (isLiftMode)
             {
-                if (symbol.DeclaredAccessibility != Public ||
+                if (symbol.DeclaredAccessibility is not Public and not Internal ||
                     symbol.ContainingType.Equals(delegationTypeSymbol, SymbolEqualityComparer.Default) is false
                 )
                 {
@@ -302,7 +302,9 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 continue;
             }
 
-            var accessibility = isExplicit ? "" : "public ";
+            var accessibility =
+                isExplicit ? "" :
+                isLiftMode ? $"{symbol.DeclaredAccessibility.ToString().ToLower()} " : "public ";
             var @override = isAbstract ? "override " : "";
             var @interface = isExplicit
                 ? $"{delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."

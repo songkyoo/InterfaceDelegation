@@ -1396,7 +1396,7 @@ public class InterfaceDelegationGeneratorTests
 
             namespace Macaron.InterfaceDelegation.Tests;
 
-            public class Foo
+            public struct Foo
             {
                 public void Bar(int x, int y = 42, DateTime z = new DateTime()) { }
             }
@@ -1404,7 +1404,7 @@ public class InterfaceDelegationGeneratorTests
             public partial class Bar
             {
                 [Lift]
-                private readonly Foo _impl = new();
+                private Foo _impl { get; } = new();
             }
             """,
             expected:

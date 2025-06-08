@@ -96,36 +96,36 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             return ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)>.Empty;
         }
 
-        if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
-        {
-            return ImmutableArray.Create((
-                (GenerationContext?)null,
-                ImmutableArray.Create(Diagnostic.Create(
-                    descriptor: ValueTypePropertyCannotBeDelegatedRule,
-                    location: declaredSymbol.Locations.FirstOrDefault(),
-                    messageArgs: [declaredSymbol.Name]
-                ))
-            ));
-        }
-
         var builder = ImmutableArray.CreateBuilder<(GenerationContext?, ImmutableArray<Diagnostic>)>();
         foreach (var attributeData in declaredSymbol.GetAttributes())
         {
-            var diagnosticsBuilder = ImmutableArray.CreateBuilder<Diagnostic>();
-
             var constructorArguments = attributeData.ConstructorArguments;
             var attributeString = attributeData.AttributeClass?.ToDisplayString();
 
-            if (attributeString == ImplementationOfAttributeString && constructorArguments.Length >= 1)
+            if (attributeString == ImplementationOfAttributeString)
             {
-                if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
+                if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
+                {
+                    builder.Add((
+                        (GenerationInterfaceContext?)null,
+                        ImmutableArray.Create(Diagnostic.Create(
+                            descriptor: ValueTypePropertyCannotBeDelegatedRule,
+                            location: declaredSymbol.Locations.FirstOrDefault(),
+                            messageArgs: [declaredSymbol.Name]
+                        ))
+                    ));
+                }
+                else if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
                 {
                     if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsUnboundGenericType)
                     {
-                        diagnosticsBuilder.Add(Diagnostic.Create(
-                            descriptor: InvalidImplementationTargetRule,
-                            location: GetTypeArgumentLocation(attributeData),
-                            messageArgs: [interfaceTypeSymbol.ToDisplayString()]
+                        builder.Add((
+                            (GenerationInterfaceContext?)null,
+                            ImmutableArray.Create(Diagnostic.Create(
+                                descriptor: InvalidImplementationTargetRule,
+                                location: GetTypeArgumentLocation(attributeData),
+                                messageArgs: [interfaceTypeSymbol.ToDisplayString()]
+                            ))
                         ));
                         continue;
                     }
@@ -137,20 +137,18 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             DelegationTypeSymbol: interfaceTypeSymbol,
                             Mode: GetImplementationMode(constructorArguments)
                         ),
-                        diagnosticsBuilder.ToImmutable()
+                        ImmutableArray<Diagnostic>.Empty
                     ));
                 }
                 else
                 {
-                    diagnosticsBuilder.Add(Diagnostic.Create(
-                        descriptor: InvalidImplementationTargetRule,
-                        location: GetTypeArgumentLocation(attributeData),
-                        messageArgs: [constructorArguments[0].Value]
-                    ));
-
                     builder.Add((
                         (GenerationContext?)null,
-                        diagnosticsBuilder.ToImmutable()
+                        ImmutableArray.Create(Diagnostic.Create(
+                            descriptor: InvalidImplementationTargetRule,
+                            location: GetTypeArgumentLocation(attributeData),
+                            messageArgs: [constructorArguments[0].Value]
+                        ))
                     ));
                 }
             }
@@ -170,7 +168,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             .Select(pair => pair!.Value)
                             .ToImmutableDictionary()
                     ),
-                    diagnosticsBuilder.ToImmutable()
+                    ImmutableArray<Diagnostic>.Empty
                 ));
 
                 #region Local Functions

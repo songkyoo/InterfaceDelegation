@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <AssemblyName>Macaron.InterfaceDelegation</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <LangVersion>latest</LangVersion>
@@ -15,7 +16,7 @@
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/songkyoo/InterfaceDelegation</RepositoryUrl>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,9 +25,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="lib/netstandard2.0" />
-    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Core.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
-    <None Include="..\InterfaceDelegation.Generator\bin\$(Configuration)\netstandard2.0\InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
+    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\Macaron.InterfaceDelegation.Core.dll" Pack="true" PackagePath="lib/netstandard2.0" />
+    <None Include="..\InterfaceDelegation.Core\bin\$(Configuration)\netstandard2.0\Macaron.InterfaceDelegation.Core.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
+    <None Include="..\InterfaceDelegation.Generator\bin\$(Configuration)\netstandard2.0\Macaron.InterfaceDelegation.Generator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
   </ItemGroup>
 
 </Project>

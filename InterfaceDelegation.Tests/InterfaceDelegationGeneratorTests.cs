@@ -1475,6 +1475,12 @@ public class InterfaceDelegationGeneratorTests
                     rename: new[] { "BaseValue:ParentValue", "Value:Answer", "GetA:Renamed" }
                 )]
                 private readonly LiftTarget _impl = new();
+
+                [Lift(
+                    includeBaseTypes: false
+                    filter: new[] { "GetB" }
+                )]
+                private readonly LiftTarget _impl2 = new();
             }
             """,
             expected:
@@ -1499,6 +1505,11 @@ public class InterfaceDelegationGeneratorTests
                     {
                         get => _impl.BaseValue;
                     }
+                    #endregion
+
+                    #region global::Macaron.InterfaceDelegation.Tests.LiftTarget
+                    public void GetB()
+                        => _impl2.GetB();
                     #endregion
                 }
             }

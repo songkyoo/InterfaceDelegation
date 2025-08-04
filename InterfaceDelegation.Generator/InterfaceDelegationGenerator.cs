@@ -46,6 +46,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         AttributeData Attribute,
         ISymbol DeclaredSymbol,
         ITypeSymbol DelegationTypeSymbol,
+        bool IncludeBaseTypes,
         ImmutableHashSet<string> Filter,
         ImmutableHashSet<string> Remove,
         ImmutableDictionary<string, string> Rename
@@ -159,9 +160,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         Attribute: attributeData,
                         DeclaredSymbol: declaredSymbol,
                         DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
-                        Filter: GetStringArray(constructorArguments[0]).ToImmutableHashSet(),
-                        Remove: GetStringArray(constructorArguments[1]).ToImmutableHashSet(),
-                        Rename: GetStringArray(constructorArguments[2])
+                        IncludeBaseTypes: constructorArguments[0].Value is true,
+                        Filter: GetStringArray(constructorArguments[1]).ToImmutableHashSet(),
+                        Remove: GetStringArray(constructorArguments[2]).ToImmutableHashSet(),
+                        Rename: GetStringArray(constructorArguments[3])
                             .Where(IsNotNullOrWhiteSpace)
                             .Select(ToPair)
                             .Where(pair => pair != null)
@@ -242,8 +244,12 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
         var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
+        var includeBaseTypes = !isLiftMode || ((GenerationLiftContext)context).IncludeBaseTypes;
 
-        foreach (var symbol in GetMembersWithBaseTypes(delegationTypeSymbol))
+        foreach (var symbol in includeBaseTypes
+            ? GetMembersWithBaseTypes(delegationTypeSymbol)
+            : delegationTypeSymbol.GetMembers()
+        )
         {
             var symbolName = symbol.Name;
 
@@ -528,7 +534,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
             var baseTypeSymbol = typeSymbol;
-            while (baseTypeSymbol != null && !IsSystemType(baseTypeSymbol))
+            while (baseTypeSymbol != null && !IsBaseType(baseTypeSymbol))
             {
                 foreach (var memberSymbol in baseTypeSymbol.GetMembers())
                 {
@@ -559,7 +565,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             }
 
             #region Local Functions
-            static bool IsSystemType(ITypeSymbol symbol)
+            static bool IsBaseType(ITypeSymbol symbol)
             {
                 return symbol.ToDisplayString(FullyQualifiedFormat) is "object" or "global::System.ValueType";
             }

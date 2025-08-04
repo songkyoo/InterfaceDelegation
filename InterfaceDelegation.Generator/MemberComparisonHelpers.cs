@@ -107,7 +107,7 @@ public static class MemberComparisonHelpers
         }
 
         var baseTypeSymbol = typeSymbol.BaseType;
-        while (baseTypeSymbol != null)
+        while (baseTypeSymbol != null && !IsSystemType(baseTypeSymbol))
         {
             foreach (var memberSymbol in baseTypeSymbol
                 .GetMembers()
@@ -119,6 +119,13 @@ public static class MemberComparisonHelpers
 
             baseTypeSymbol = baseTypeSymbol.BaseType;
         }
+
+        #region Local Functions
+        static bool IsSystemType(ITypeSymbol symbol)
+        {
+            return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) is "object" or "global::System.ValueType";
+        }
+        #endregion
     }
 
     private static bool MatchesMethodSignature(

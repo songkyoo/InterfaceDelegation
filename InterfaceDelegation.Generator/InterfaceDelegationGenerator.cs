@@ -243,19 +243,14 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in delegationTypeSymbol.GetMembers())
+        foreach (var symbol in GetMembersWithBaseTypes(delegationTypeSymbol))
         {
-            if (symbol is { IsStatic: true } or { Kind: not (Method or Property) })
-            {
-                continue;
-            }
-
             var symbolName = symbol.Name;
 
             if (isLiftMode)
             {
                 if (symbol.DeclaredAccessibility is not Public and not Internal ||
-                    symbol.ContainingType.Equals(delegationTypeSymbol, SymbolEqualityComparer.Default) is false
+                    symbol.IsAbstract
                 )
                 {
                     continue;
@@ -312,7 +307,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             {
                 if (isLiftMode)
                 {
-                    if (methodSymbol is not { IsImplicitlyDeclared: false, IsOverride: false })
+                    if (methodSymbol is not { IsImplicitlyDeclared: false })
                     {
                         continue;
                     }
@@ -526,6 +521,49 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         static bool IsImplementingInterface(ITypeSymbol typeSymbol, ITypeSymbol interfaceSymbol)
         {
             return typeSymbol.Interfaces.Contains(interfaceSymbol, SymbolEqualityComparer.Default);
+        }
+
+        static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
+        {
+            var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+
+            var baseTypeSymbol = typeSymbol;
+            while (baseTypeSymbol != null && !IsSystemType(baseTypeSymbol))
+            {
+                foreach (var memberSymbol in baseTypeSymbol.GetMembers())
+                {
+                    if (memberSymbol.IsStatic)
+                    {
+                        continue;
+                    }
+
+                    switch (memberSymbol)
+                    {
+                        case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
+                            overriddenSymbols.Add(overriddenMethod);
+                            break;
+                        case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
+                            overriddenSymbols.Add(overriddenProperty);
+                            break;
+                    }
+
+                    if (overriddenSymbols.Contains(memberSymbol))
+                    {
+                        continue;
+                    }
+
+                    yield return memberSymbol;
+                }
+
+                baseTypeSymbol = baseTypeSymbol.BaseType;
+            }
+
+            #region Local Functions
+            static bool IsSystemType(ITypeSymbol symbol)
+            {
+                return symbol.ToDisplayString(FullyQualifiedFormat) is "object" or "global::System.ValueType";
+            }
+            #endregion
         }
 
         static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(

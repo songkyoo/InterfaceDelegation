@@ -1325,13 +1325,14 @@ public class InterfaceDelegationGeneratorTests
             """
             namespace Macaron.InterfaceDelegation.Tests;
 
-            // 베이스 클래스 항목은 무시됨
+            // 베이스 클래스 멤버도 포함
             public class Base
             {
                 public int BaseValue { get; }
 
                 public void BaseMethod() { }
 
+                // 오버라이드 된 멤버는 무시됨
                 public virtual void BaseVirtualMethod() { }
             }
 
@@ -1349,7 +1350,6 @@ public class InterfaceDelegationGeneratorTests
                 // internal은 internal로 리프팅
                 internal int GetAnswer() => 42;
 
-                // 오버라이드 멤버는 무시됨
                 public override void BaseVirtualMethod() { }
 
                 // public인 아닌 멤버는 무시됨
@@ -1378,6 +1378,17 @@ public class InterfaceDelegationGeneratorTests
 
                     internal int GetAnswer()
                         => _impl.GetAnswer();
+
+                    public void BaseVirtualMethod()
+                        => _impl.BaseVirtualMethod();
+
+                    public int BaseValue
+                    {
+                        get => _impl.BaseValue;
+                    }
+
+                    public void BaseMethod()
+                        => _impl.BaseMethod();
                     #endregion
                 }
             }
@@ -1435,7 +1446,12 @@ public class InterfaceDelegationGeneratorTests
             """
             namespace Macaron.InterfaceDelegation.Tests;
 
-            public class LiftTarget
+            public class LiftTargetBase
+            {
+                public int BaseValue { get; }
+            }
+
+            public class LiftTarget : LiftTargetBase
             {
                 public int Value => 42;
 
@@ -1454,9 +1470,9 @@ public class InterfaceDelegationGeneratorTests
                 public void Renamed() { }
 
                 [Lift(
-                    filter: new[] { "Value", "GetA", "GetB" },
+                    filter: new[] { "BaseValue", "Value", "GetA", "GetB" },
                     remove: new[] { "GetB" },
-                    rename: new[] { "Value:Answer", "GetA:Renamed" }
+                    rename: new[] { "BaseValue:ParentValue", "Value:Answer", "GetA:Renamed" }
                 )]
                 private readonly LiftTarget _impl = new();
             }
@@ -1478,6 +1494,11 @@ public class InterfaceDelegationGeneratorTests
 
                     public void Renamed(int x)
                         => _impl.GetA(x);
+
+                    public int ParentValue
+                    {
+                        get => _impl.BaseValue;
+                    }
                     #endregion
                 }
             }

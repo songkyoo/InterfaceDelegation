@@ -1358,7 +1358,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class Bar
             {
-                [Lift]
+                [Lift(includeBaseTypes: true)]
                 private readonly Foo _impl = new();
             }
             """,
@@ -1470,6 +1470,7 @@ public class InterfaceDelegationGeneratorTests
                 public void Renamed() { }
 
                 [Lift(
+                    includeBaseTypes: true,
                     filter: new[] { "BaseValue", "Value", "GetA", "GetB" },
                     remove: new[] { "GetB" },
                     rename: new[] { "BaseValue:ParentValue", "Value:Answer", "GetA:Renamed" }

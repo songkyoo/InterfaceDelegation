@@ -46,7 +46,10 @@ public class MethodSignatureGenerationHelpers
 
         if (typeParameter.HasReferenceTypeConstraint)
         {
-            constraints.Add("class");
+            constraints.Add(typeParameter.ReferenceTypeConstraintNullableAnnotation == NullableAnnotation.Annotated
+                ? "class?"
+                : "class"
+            );
         }
 
         if (typeParameter.HasUnmanagedTypeConstraint)

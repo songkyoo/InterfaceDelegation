@@ -1323,6 +1323,8 @@ public class InterfaceDelegationGeneratorTests
         AssertGeneratedCode(
             sourceCode:
             """
+            using System.Collections.Generic;
+
             namespace Macaron.InterfaceDelegation.Tests;
 
             // 베이스 클래스 멤버도 포함
@@ -1345,7 +1347,13 @@ public class InterfaceDelegationGeneratorTests
                     set => { }
                 }
 
+                public List<object?> Value => null!;
+
                 public int GetAnswer<T>() where T : class => 42;
+
+                public int GetAnswerNullable<T>() where T : class? => 42;
+
+                public List<T?> GetAnswerNullable2<T>() => null!;
 
                 // internal은 internal로 리프팅
                 internal int GetAnswer() => 42;
@@ -1372,9 +1380,21 @@ public class InterfaceDelegationGeneratorTests
                 partial class Bar
                 {
                     #region global::Macaron.InterfaceDelegation.Tests.Foo
+                    public global::System.Collections.Generic.List<object?> Value
+                    {
+                        get => _impl.Value;
+                    }
+
                     public int GetAnswer<T>()
                         where T : class
                         => _impl.GetAnswer<T>();
+
+                    public int GetAnswerNullable<T>()
+                        where T : class?
+                        => _impl.GetAnswerNullable<T>();
+
+                    public global::System.Collections.Generic.List<T?> GetAnswerNullable2<T>()
+                        => _impl.GetAnswerNullable2<T>();
 
                     internal int GetAnswer()
                         => _impl.GetAnswer();

@@ -10,7 +10,7 @@ using static Macaron.InterfaceDelegation.SourceGenerationHelpers;
 using static Microsoft.CodeAnalysis.Accessibility;
 using static Microsoft.CodeAnalysis.MethodKind;
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
-using static Microsoft.CodeAnalysis.SymbolKind;
+using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
 
 namespace Macaron.InterfaceDelegation;
 
@@ -328,7 +328,9 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     .Where(static constraint => constraint.Length > 0)
                     .ToImmutableArray();
 
-                var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat);
+                var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+                    IncludeNullableReferenceTypeModifier | UseSpecialTypes
+                ));
                 var methodName = methodSymbol.Name;
                 var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
                 var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
@@ -394,7 +396,9 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add("");
                 }
 
-                var propertyType = propertySymbol.Type.ToDisplayString(FullyQualifiedFormat);
+                var propertyType = propertySymbol.Type.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+                    IncludeNullableReferenceTypeModifier | UseSpecialTypes
+                ));
                 var propertyName = propertySymbol.Name;
 
                 if (propertySymbol.IsIndexer)

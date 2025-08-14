@@ -248,7 +248,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
         foreach (var symbol in includeBaseTypes
             ? GetMembersWithBaseTypes(delegationTypeSymbol)
-            : delegationTypeSymbol.GetMembers()
+            : GetMembers(delegationTypeSymbol)
         )
         {
             var symbolName = symbol.Name;
@@ -574,6 +574,19 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                 return symbol.ToDisplayString(FullyQualifiedFormat) is "object" or "global::System.ValueType";
             }
             #endregion
+        }
+
+        static IEnumerable<ISymbol> GetMembers(ITypeSymbol typeSymbol)
+        {
+            foreach (var memberSymbol in typeSymbol.GetMembers())
+            {
+                if (memberSymbol.IsStatic)
+                {
+                    continue;
+                }
+
+                yield return memberSymbol;
+            }
         }
 
         static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(

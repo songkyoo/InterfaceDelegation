@@ -1340,6 +1340,11 @@ public class InterfaceDelegationGeneratorTests
 
             public class Foo : Base
             {
+                // 정적 멤버는 무시됨
+                public static Foo Of() => new Foo();
+
+                public static int StaticValue => 42;
+
                 // 인덱서는 무시됨
                 public int this[int index]
                 {
@@ -1429,6 +1434,11 @@ public class InterfaceDelegationGeneratorTests
 
             public struct Foo
             {
+                // 정적 멤버는 무시됨
+                public static Foo Of() => new Foo();
+
+                public static int StaticValue => 42;
+
                 public void Bar(int x, int y = 42, DateTime z = new DateTime()) { }
             }
 

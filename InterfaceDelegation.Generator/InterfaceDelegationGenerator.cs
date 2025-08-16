@@ -116,8 +116,31 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         ))
                     ));
                 }
-                else if (constructorArguments[0].Value is INamedTypeSymbol interfaceTypeSymbol)
+                else if (constructorArguments[0].Value is var constructorArgument)
                 {
+                    var interfaceTypeSymbol = constructorArgument == null
+                        ? declaredSymbol switch
+                        {
+                            IFieldSymbol field => (INamedTypeSymbol)field.Type,
+                            IPropertySymbol property => (INamedTypeSymbol)property.Type,
+                            IParameterSymbol parameter => (INamedTypeSymbol)parameter.Type,
+                            _ => null,
+                        }
+                        : constructorArgument as INamedTypeSymbol;
+
+                    if (interfaceTypeSymbol == null)
+                    {
+                        builder.Add((
+                            (GenerationInterfaceContext?)null,
+                            ImmutableArray.Create(Diagnostic.Create(
+                                descriptor: InvalidImplementationTargetRule,
+                                location: GetTypeArgumentLocation(attributeData),
+                                messageArgs: [constructorArguments[0].Value]
+                            ))
+                        ));
+                        continue;
+                    }
+
                     if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsUnboundGenericType)
                     {
                         builder.Add((
@@ -139,17 +162,6 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             Mode: GetImplementationMode(constructorArguments)
                         ),
                         ImmutableArray<Diagnostic>.Empty
-                    ));
-                }
-                else
-                {
-                    builder.Add((
-                        (GenerationContext?)null,
-                        ImmutableArray.Create(Diagnostic.Create(
-                            descriptor: InvalidImplementationTargetRule,
-                            location: GetTypeArgumentLocation(attributeData),
-                            messageArgs: [constructorArguments[0].Value]
-                        ))
                     ));
                 }
             }

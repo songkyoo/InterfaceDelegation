@@ -22,7 +22,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     private const string Explicit = nameof(ImplementationMode.Explicit);
     private const string Lift = nameof(Lift);
 
-    private const string ImplementationOfAttributeString = "Macaron.InterfaceDelegation.ImplementationOfAttribute";
+    private const string ExposeAttributeString = "Macaron.InterfaceDelegation.ExposeAttribute";
     private const string LiftAttributeString = "Macaron.InterfaceDelegation.LiftAttribute";
 
     private const string Space = "    ";
@@ -103,7 +103,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             var constructorArguments = attributeData.ConstructorArguments;
             var attributeString = attributeData.AttributeClass?.ToDisplayString();
 
-            if (attributeString == ImplementationOfAttributeString)
+            if (attributeString == ExposeAttributeString)
             {
                 if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
                 {

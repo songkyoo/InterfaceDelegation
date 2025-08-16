@@ -27,7 +27,7 @@ public class InterfaceDelegationGeneratorTests
 
     private static (ImmutableArray<Diagnostic> diagnostics, string generatedCode) CompileAndGetResults(string sourceCode)
     {
-        var attributeAssembly = typeof(ImplementationOfAttribute).Assembly;
+        var attributeAssembly = typeof(ExposeAttribute).Assembly;
         var references = AppDomain
             .CurrentDomain
             .GetAssemblies()
@@ -63,7 +63,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void GeneratesDelegation_When_OmitTypeOfImplementationOfAttribute()
+    public void GeneratesDelegation_When_OmitTypeOfExposeAttribute()
     {
         AssertGeneratedCode(
             sourceCode:
@@ -82,7 +82,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeter
             {
-                [ImplementationOf]
+                [Expose]
                 private readonly IGreeter _impl = new RealGreeter();
             }
             """,
@@ -107,7 +107,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void GeneratesDelegation_When_ImplementationOfAppliedToField()
+    public void GeneratesDelegation_When_ExposeAttributeAppliedToField()
     {
         AssertGeneratedCode(
             sourceCode:
@@ -126,7 +126,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeter
             {
-                [ImplementationOf(typeof(IGreeter))]
+                [Expose(typeof(IGreeter))]
                 private readonly IGreeter _impl = new RealGreeter();
             }
             """,
@@ -151,7 +151,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void GeneratesDelegation_When_ImplementationOfAppliedToProperty()
+    public void GeneratesDelegation_When_ExposeAttributeAppliedToProperty()
     {
         AssertGeneratedCode(
             sourceCode:
@@ -170,7 +170,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeter
             {
-                [ImplementationOf(typeof(IGreeter))]
+                [Expose(typeof(IGreeter))]
                 private IGreeter Impl { get; } = new RealGreeter();
             }
             """,
@@ -221,8 +221,8 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeterA, IGreeterB
             {
-                [ImplementationOf(typeof(IGreeterA))]
-                [ImplementationOf(typeof(IGreeterB))]
+                [Expose(typeof(IGreeterA))]
+                [Expose(typeof(IGreeterB))]
                 private IGreeter Impl { get; } = new RealGreeter();
             }
             """,
@@ -305,8 +305,8 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeterA, IGreeterB
             {
-                [ImplementationOf(typeof(IGreeterA), ImplementationMode.Explicit)]
-                [ImplementationOf(typeof(IGreeterB), ImplementationMode.Explicit)]
+                [Expose(typeof(IGreeterA), ImplementationMode.Explicit)]
+                [Expose(typeof(IGreeterB), ImplementationMode.Explicit)]
                 private RealGreeter Impl { get; } = new RealGreeter();
             }
             """,
@@ -388,10 +388,10 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IGreeterA, IGreeterB
             {
-                [ImplementationOf(typeof(IGreeterA))]
+                [Expose(typeof(IGreeterA))]
                 private IGreeterA ImplA { get; } = new RealGreeter();
 
-                [ImplementationOf(typeof(IGreeterB))]
+                [Expose(typeof(IGreeterB))]
                 private IGreeterB ImplB { get; } = new RealGreeter();
             }
             """,
@@ -444,7 +444,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class BoundedGenericInterfaceDelegation : IFoo<int, string>
             {
-                [ImplementationOf(typeof(IFoo<int, string>))]
+                [Expose(typeof(IFoo<int, string>))]
                 private readonly FooImpl _impl = new FooImpl();
             }
             """,
@@ -523,7 +523,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPropertyDelegation : IPropertyExample
             {
-                [ImplementationOf(typeof(IPropertyExample))]
+                [Expose(typeof(IPropertyExample))]
                 private readonly IPropertyExample _impl = new PropertyExampleImpl();
             }
             """,
@@ -585,7 +585,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestMethodOverloads : ICalculator
             {
-                [ImplementationOf(typeof(ICalculator))]
+                [Expose(typeof(ICalculator))]
                 private readonly ICalculator _impl = new CalculatorImpl();
             }
             """,
@@ -632,7 +632,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial struct TestStructDelegation : IStructInterface
             {
-                [ImplementationOf(typeof(IStructInterface))]
+                [Expose(typeof(IStructInterface))]
                 private readonly IStructInterface _impl;
 
                 public TestStructDelegation()
@@ -679,7 +679,7 @@ public class InterfaceDelegationGeneratorTests
                 public void DoSomething() { }
             }
 
-            public partial record TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
+            public partial record TestRecordDelegation([Expose(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
             {
             }
             """,
@@ -721,7 +721,7 @@ public class InterfaceDelegationGeneratorTests
                 public void DoSomething() { }
             }
 
-            public partial record struct TestRecordDelegation([ImplementationOf(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
+            public partial record struct TestRecordDelegation([Expose(typeof(IRecordInterface))] IRecordInterface Impl) : IRecordInterface
             {
             }
             """,
@@ -769,7 +769,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialAutoImplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo))]
+                [Expose(typeof(IFoo))]
                 private readonly IFoo _impl = new FooImpl();
 
                 public void MethodA() { }
@@ -819,7 +819,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialAutoExplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo))]
+                [Expose(typeof(IFoo))]
                 private readonly IFoo _impl = new FooImpl();
 
                 void IFoo.MethodA() { }
@@ -869,7 +869,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialImplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo), ImplementationMode.Implicit)]
+                [Expose(typeof(IFoo), ImplementationMode.Implicit)]
                 private readonly IFoo _impl = new FooImpl();
             }
             """,
@@ -920,7 +920,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialImplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo), ImplementationMode.Implicit)]
+                [Expose(typeof(IFoo), ImplementationMode.Implicit)]
                 private readonly IFoo _impl = new FooImpl();
 
                 public void MethodA() { }
@@ -970,7 +970,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialImplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo), ImplementationMode.Implicit)]
+                [Expose(typeof(IFoo), ImplementationMode.Implicit)]
                 private readonly IFoo _impl = new FooImpl();
 
                 void IFoo.MethodA() { }
@@ -1016,7 +1016,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestExplicitMode : IService
             {
-                [ImplementationOf(typeof(IService), ImplementationMode.Explicit)]
+                [Expose(typeof(IService), ImplementationMode.Explicit)]
                 private readonly IService _impl = new ServiceImpl();
             }
             """,
@@ -1064,7 +1064,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialExplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo), ImplementationMode.Explicit)]
+                [Expose(typeof(IFoo), ImplementationMode.Explicit)]
                 private readonly IFoo _impl = new FooImpl();
 
                 void IFoo.MethodA() { }
@@ -1114,7 +1114,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestPartialExplicit : IFoo
             {
-                [ImplementationOf(typeof(IFoo), ImplementationMode.Explicit)]
+                [Expose(typeof(IFoo), ImplementationMode.Explicit)]
                 private readonly IFoo _impl = new FooImpl();
 
                 public MethodA() { }
@@ -1167,7 +1167,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestAbstractDelegation : IAbstractExample
             {
-                [ImplementationOf(typeof(IAbstractExample))]
+                [Expose(typeof(IAbstractExample))]
                 private readonly IAbstractExample _impl = new AbstractExampleImpl();
 
                 public abstract int GetAnswer();
@@ -1224,7 +1224,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestAbstractDelegation : TestAbstractDelegationBase, IAbstractExample
             {
-                [ImplementationOf(typeof(IAbstractExample))]
+                [Expose(typeof(IAbstractExample))]
                 private readonly IAbstractExample _impl = new AbstractExampleImpl();
             }
             """,
@@ -1288,7 +1288,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestAbstractDelegation : TestAbstractDelegationBase
             {
-                [ImplementationOf(typeof(IAbstractExample))]
+                [Expose(typeof(IAbstractExample))]
                 private readonly IAbstractExample _impl = new AbstractExampleImpl();
 
                 public override int GetAnswer() => 42;
@@ -1336,7 +1336,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestGenericDelegation : TestGenericDelegationBase
             {
-                [ImplementationOf(typeof(IGenericExample))]
+                [Expose(typeof(IGenericExample))]
                 private readonly IGenericExample _impl = new GenericExampleImpl();
             }
             """,
@@ -1594,7 +1594,7 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
-    public void ReportsDiagnostic_When_ImplementationOfAppliedToValueTypeProperty()
+    public void ReportsDiagnostic_When_ExposeAttributeAppliedToValueTypeProperty()
     {
         const string sourceCode =
             """
@@ -1607,7 +1607,7 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IFoo
             {
-                [ImplementationOf(typeof(IFoo))]
+                [Expose(typeof(IFoo))]
                 private int Impl { get; } = 42;
             }
             """;
@@ -1636,10 +1636,10 @@ public class InterfaceDelegationGeneratorTests
 
             public partial class TestClass : IFoo
             {
-                [ImplementationOf(typeof(IFoo))]
+                [Expose(typeof(IFoo))]
                 private readonly IFoo _impl1 = new FooImpl();
 
-                [ImplementationOf(typeof(IFoo))]
+                [Expose(typeof(IFoo))]
                 private readonly IFoo _impl2 = new FooImpl();
             }
             """;

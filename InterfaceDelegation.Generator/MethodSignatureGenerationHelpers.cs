@@ -4,6 +4,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxKind;
 
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
+using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
 
 namespace Macaron.InterfaceDelegation;
 
@@ -12,19 +13,13 @@ public class MethodSignatureGenerationHelpers
     public static string GetParameterString(IParameterSymbol parameterSymbol)
     {
         var modifiersString = GetParameterModifierString(parameterSymbol);
-        var typeString = parameterSymbol.Type.ToDisplayString(FullyQualifiedFormat);
-        var nullabilityString = GetNullableAnnotationString(parameterSymbol, typeString);
+        var typeString = parameterSymbol.Type.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+            IncludeNullableReferenceTypeModifier | UseSpecialTypes
+        ));
         var nameString = parameterSymbol.Name;
         var defaultValueString = GetParameterDefaultValueString(parameterSymbol);
 
-        return $"{modifiersString}{typeString}{nullabilityString} {nameString}{defaultValueString}";
-
-        #region Local Functions
-        static string GetNullableAnnotationString(IParameterSymbol parameterSymbol, string typeString) =>
-            parameterSymbol.NullableAnnotation == NullableAnnotation.Annotated && !typeString.EndsWith("?")
-                ? "?"
-                : "";
-        #endregion
+        return $"{modifiersString}{typeString} {nameString}{defaultValueString}";
     }
 
     public static string GetArgumentString(IParameterSymbol parameterSymbol)

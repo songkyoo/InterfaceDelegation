@@ -15,9 +15,9 @@ dotnet pack ./InterfaceDelegation/InterfaceDelegation.csproj -c Release
 
 ## 사용법
 
-### `ImplementationOf` 어트리뷰트를 사용하여 인터페이스 위임하기
+### `Expose` 어트리뷰트를 사용하여 인터페이스 위임하기
 
-`ImplementationOf` 어트리뷰트를 필드 혹은 프로퍼티에 적용하면 어트리뷰트에 지정한 인터페이스를 구현하는 코드를 생성합니다. 어트리뷰트를 사용하는 타입은 `partial`로 선언되어야 합니다.
+`Expose` 어트리뷰트를 필드 혹은 프로퍼티에 적용하면 어트리뷰트에 지정한 인터페이스를 구현하는 코드를 생성합니다. 어트리뷰트를 사용하는 타입은 `partial`로 선언되어야 합니다.
 
 > :warning: 값 타입의 프로퍼티에는 적용할 수 없습니다.
 
@@ -37,7 +37,7 @@ public class FooImpl
 
 public partial class Qux : IFoo
 {
-    [ImplementationOf(typeof(IFoo))]
+    [Expose(typeof(IFoo))]
     private FooImpl _impl = new();
 }
 ```
@@ -89,7 +89,7 @@ public class FooImpl : IFoo
 
 public partial class Qux : IFoo
 {
-    [ImplementationOf(typeof(IFoo))]
+    [Expose(typeof(IFoo))]
     private FooImpl _impl = new();
     
     // Bar는 구현되었기 때문에 코드를 생성하지 않습니다.
@@ -129,7 +129,7 @@ partial class Qux
 
 #### 구현 모드 지정하기
 
-`ImplementationOf`는 `Implicit`, `Explicit` 두 개의 구현 모드를 가지고 있습니다. `ImplementationOf` 생성자의 두 번째 매개변수에 모드를 지정할 수 있습니다.
+`Expose`는 `Implicit`, `Explicit` 두 개의 구현 모드를 가지고 있습니다. `Expose` 생성자의 두 번째 매개변수에 모드를 지정할 수 있습니다.
 
 - `Implicit`: 인터페이스의 멤버를 `public` 접근 제한자를 사용하여 구현합니다. 타입이 명시적 혹은 암시적으로 해당 멤버를 구현했다면 아무것도 하지 않습니다.
 - `Explicit`: 인터페이스의 멤버를 명시적으로 구현합니다. 타입이 명시적으로 해당 멤버를 구현했다면 아무것도 하지 않습니다. 암시적 구현은 고려하지 않습니다.
@@ -138,7 +138,7 @@ partial class Qux
 
 ### `Lift` 어트리뷰를 사용하여 필드 혹은 프로퍼티의 멤버를 선언된 타입에 위임하기
 
-`Lift` 어트리뷰트를 필드나 프로퍼티에 적용하여 지정한 대상의 멤버를 위임하는 코드를 생성할 수 있습니다. 대상이 되는 멤버는 `public` 혹은 `internal` 접근 제한자를 가지는 프로퍼티 혹은 메서드입니다. `ImplementationOf`와 다르게 인덱서는 위임 대상이 아닙니다. `ImplementationOf`는 값 타입 프로퍼티에 적용할 수 없지만 `Lift`는 가능합니다.
+`Lift` 어트리뷰트를 필드나 프로퍼티에 적용하여 지정한 대상의 멤버를 위임하는 코드를 생성할 수 있습니다. 대상이 되는 멤버는 `public` 혹은 `internal` 접근 제한자를 가지는 프로퍼티 혹은 메서드입니다. `Expose`와 다르게 인덱서는 위임 대상이 아닙니다. `Expose`는 값 타입 프로퍼티에 적용할 수 없지만 `Lift`는 가능합니다.
 
 ```csharp
 using Macaron.InterfaceDelegation;
@@ -177,7 +177,7 @@ partial class Qux
 }
 ```
 
-`ImplementationOf`와 동일하게 이미 동일한 시그니처의 멤버가 존재한다면 해당 멤버는 위임하지 않습니다. 다만 자동 생성되는 코드나 타입 이름과 동일한 멤버가 생성되는 것은 고려하지 않기 때문에 주의가 필요합니다. 멤버 이름 충돌은 옵션을 지정하여 해결할 수 있습니다.
+`Expose`와 동일하게 이미 동일한 시그니처의 멤버가 존재한다면 해당 멤버는 위임하지 않습니다. 다만 자동 생성되는 코드나 타입 이름과 동일한 멤버가 생성되는 것은 고려하지 않기 때문에 주의가 필요합니다. 멤버 이름 충돌은 옵션을 지정하여 해결할 수 있습니다.
 
 #### `Lift`에 옵션을 지정하여 위임할 멤버를 선택하기
 

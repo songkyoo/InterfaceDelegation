@@ -547,37 +547,50 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
         static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
         {
-            var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-
-            var baseTypeSymbol = typeSymbol;
-            while (baseTypeSymbol != null && !IsBaseType(baseTypeSymbol))
+            if (typeSymbol.TypeKind == TypeKind.Interface)
             {
-                foreach (var memberSymbol in baseTypeSymbol.GetMembers())
+                foreach (var memberSymbol in new[] { typeSymbol }.Concat(typeSymbol.AllInterfaces)
+                    .SelectMany(symbol => symbol.GetMembers())
+                    .Where(symbol => !symbol.IsStatic)
+                )
                 {
-                    if (memberSymbol.IsStatic)
-                    {
-                        continue;
-                    }
-
-                    switch (memberSymbol)
-                    {
-                        case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
-                            overriddenSymbols.Add(overriddenMethod);
-                            break;
-                        case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
-                            overriddenSymbols.Add(overriddenProperty);
-                            break;
-                    }
-
-                    if (overriddenSymbols.Contains(memberSymbol))
-                    {
-                        continue;
-                    }
-
                     yield return memberSymbol;
                 }
+            }
+            else
+            {
+                var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
-                baseTypeSymbol = baseTypeSymbol.BaseType;
+                var baseTypeSymbol = typeSymbol;
+                while (baseTypeSymbol != null && !IsBaseType(baseTypeSymbol))
+                {
+                    foreach (var memberSymbol in baseTypeSymbol.GetMembers())
+                    {
+                        if (memberSymbol.IsStatic)
+                        {
+                            continue;
+                        }
+
+                        switch (memberSymbol)
+                        {
+                            case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
+                                overriddenSymbols.Add(overriddenMethod);
+                                break;
+                            case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
+                                overriddenSymbols.Add(overriddenProperty);
+                                break;
+                        }
+
+                        if (overriddenSymbols.Contains(memberSymbol))
+                        {
+                            continue;
+                        }
+
+                        yield return memberSymbol;
+                    }
+
+                    baseTypeSymbol = baseTypeSymbol.BaseType;
+                }
             }
 
             #region Local Functions

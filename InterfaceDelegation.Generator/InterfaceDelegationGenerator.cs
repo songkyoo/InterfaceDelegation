@@ -267,9 +267,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             if (isLiftMode)
             {
-                if (symbol.DeclaredAccessibility is not Public and not Internal ||
-                    symbol.IsAbstract
-                )
+                if (symbol.DeclaredAccessibility is not Public and not Internal)
                 {
                     continue;
                 }

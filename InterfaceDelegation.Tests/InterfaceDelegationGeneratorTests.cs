@@ -1475,6 +1475,9 @@ public class InterfaceDelegationGeneratorTests
 
                 // public인 아닌 멤버는 무시됨
                 protected int GetAnswer() => 42;
+
+                // abstract 멤버도 리프팅 대상
+                public abstract void AbstractMethod();
             }
 
             public partial class Bar
@@ -1514,6 +1517,9 @@ public class InterfaceDelegationGeneratorTests
 
                     public void BaseVirtualMethod()
                         => _impl.BaseVirtualMethod();
+
+                    public void AbstractMethod()
+                        => _impl.AbstractMethod();
 
                     public int BaseValue
                     {

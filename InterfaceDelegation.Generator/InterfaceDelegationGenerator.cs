@@ -364,10 +364,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
                     if (isField)
                     {
-                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(ref {declaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
+                        builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(in {declaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
                         builder.Add($"");
                         builder.Add($"{Space}#region Local Functions");
-                        builder.Add($"{Space}static {returnType} __{methodName}<__T>(ref __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {interfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
+                        builder.Add($"{Space}static {returnType} __{methodName}<__T>(in __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {interfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
                         builder.Add($"{Space}#endregion");
                     }
                     else
@@ -427,10 +427,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}get");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}return __Get(ref {declaredSymbolName}, {arguments});");
+                                builder.Add($"{Space}{Space}return __Get(in {declaredSymbolName}, {arguments});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl, {parameters}) where __TImpl : {interfaceTypeString} => __impl[{arguments}];");
+                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(in __TImpl __impl, {parameters}) where __TImpl : {interfaceTypeString} => __impl[{arguments}];");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
@@ -453,10 +453,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}set");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}__Set(ref {declaredSymbolName}, {arguments}, value);");
+                                builder.Add($"{Space}{Space}__Set(in {declaredSymbolName}, {arguments}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {parameters}, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl[{arguments}] = value;");
+                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(in __TImpl __impl, {parameters}, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl[{arguments}] = value;");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
@@ -486,10 +486,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}get");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}return __Get(ref {declaredSymbolName});");
+                                builder.Add($"{Space}{Space}return __Get(in {declaredSymbolName});");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(ref __TImpl __impl) where __TImpl : {interfaceTypeString} => __impl.{propertyName};");
+                                builder.Add($"{Space}{Space}static {propertyType} __Get<__TImpl>(in __TImpl __impl) where __TImpl : {interfaceTypeString} => __impl.{propertyName};");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }
@@ -512,10 +512,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                             {
                                 builder.Add($"{Space}set");
                                 builder.Add($"{Space}{{");
-                                builder.Add($"{Space}{Space}__Set(ref {declaredSymbolName}, value);");
+                                builder.Add($"{Space}{Space}__Set(in {declaredSymbolName}, value);");
                                 builder.Add($"");
                                 builder.Add($"{Space}{Space}#region Local Functions");
-                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(ref __TImpl __impl, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl.{propertyName} = value;");
+                                builder.Add($"{Space}{Space}static void __Set<__TImpl>(in __TImpl __impl, {propertyType} value) where __TImpl : {interfaceTypeString} => __impl.{propertyName} = value;");
                                 builder.Add($"{Space}{Space}#endregion");
                                 builder.Add($"{Space}}}");
                             }

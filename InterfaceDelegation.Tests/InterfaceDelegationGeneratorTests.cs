@@ -526,10 +526,10 @@ public class InterfaceDelegationGeneratorTests
                     {
                         get
                         {
-                            return __Get(ref _impl);
+                            return __Get(in _impl);
 
                             #region Local Functions
-                            static int __Get<__TImpl>(ref __TImpl __impl) where __TImpl : global::Macaron.InterfaceDelegation.Tests.IFoo<int, string> => __impl.Bar;
+                            static int __Get<__TImpl>(in __TImpl __impl) where __TImpl : global::Macaron.InterfaceDelegation.Tests.IFoo<int, string> => __impl.Bar;
                             #endregion
                         }
                     }
@@ -538,10 +538,10 @@ public class InterfaceDelegationGeneratorTests
                     {
                         get
                         {
-                            return __Get(ref _impl);
+                            return __Get(in _impl);
 
                             #region Local Functions
-                            static string __Get<__TImpl>(ref __TImpl __impl) where __TImpl : global::Macaron.InterfaceDelegation.Tests.IFoo<int, string> => __impl.Baz;
+                            static string __Get<__TImpl>(in __TImpl __impl) where __TImpl : global::Macaron.InterfaceDelegation.Tests.IFoo<int, string> => __impl.Baz;
                             #endregion
                         }
                     }

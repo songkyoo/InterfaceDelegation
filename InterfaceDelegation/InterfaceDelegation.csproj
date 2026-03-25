@@ -16,7 +16,7 @@
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/songkyoo/InterfaceDelegation</RepositoryUrl>
-    <Version>1.0.7</Version>
+    <Version>1.0.8</Version>
   </PropertyGroup>
 
   <ItemGroup>

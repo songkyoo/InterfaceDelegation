@@ -14,8 +14,10 @@ public static class MemberComparisonHelpers
 
         var methodSymbols = new List<IMethodSymbol>();
         var propertySymbols = new List<IPropertySymbol>();
+        var eventSymbols = new List<IEventSymbol>();
         var explicitMethodSymbols = new List<IMethodSymbol>();
         var explicitPropertySymbols = new List<IPropertySymbol>();
+        var explicitEventSymbols = new List<IEventSymbol>();
 
         foreach (var memberSymbol in GetMembersWithBaseTypes(typeSymbol))
         {
@@ -51,12 +53,28 @@ public static class MemberComparisonHelpers
                     propertySymbols.Add(propertySymbol);
                 }
             }
+            else if (memberSymbol is IEventSymbol eventSymbol)
+            {
+                if (eventSymbol.ExplicitInterfaceImplementations is [var explicitEventSymbol])
+                {
+                    if (symbolComparer.Equals(explicitEventSymbol.ContainingType, interfaceSymbol))
+                    {
+                        explicitEventSymbols.Add(explicitEventSymbol);
+                    }
+                }
+                else
+                {
+                    eventSymbols.Add(eventSymbol);
+                }
+            }
         }
 
         var methodSymbolsDict = ToDictionary(methodSymbols, methodSymbol => methodSymbol.Name);
         var explicitMethodSymbolsDict = ToDictionary(explicitMethodSymbols, methodSymbol => methodSymbol.Name);
         var propertySymbolsDict = ToDictionary(propertySymbols, propertySymbol => propertySymbol.Name);
         var explicitPropertySymbolsDict = ToDictionary(explicitPropertySymbols, propertySymbol => propertySymbol.Name);
+        var eventSymbolsDict = ToDictionary(eventSymbols, eventSymbol => eventSymbol.Name);
+        var explicitEventSymbolsDict = ToDictionary(explicitEventSymbols, eventSymbol => eventSymbol.Name);
 
         return (symbol, symbolName, isExplicit, checkReturnType) =>
         {
@@ -79,6 +97,17 @@ public static class MemberComparisonHelpers
                     return symbols.FirstOrDefault(propertySymbol2 =>
                     {
                         return MatchesPropertySignature(propertySymbol, symbolName, propertySymbol2);
+                    });
+                }
+            }
+            else if (symbol is IEventSymbol eventSymbol)
+            {
+                var dict = isExplicit ? explicitEventSymbolsDict : eventSymbolsDict;
+                if (dict.TryGetValue(symbolName, out var symbols))
+                {
+                    return symbols.FirstOrDefault(eventSymbol2 =>
+                    {
+                        return MatchesEventSignature(eventSymbol, symbolName, eventSymbol2);
                     });
                 }
             }
@@ -183,8 +212,22 @@ public static class MemberComparisonHelpers
     )
     {
         var comparer = SymbolEqualityComparer.Default;
+
         return
             propertyName.Equals(targetPropertySymbol.Name) &&
             comparer.Equals(propertySymbol.Type, targetPropertySymbol.Type);
+    }
+
+    private static bool MatchesEventSignature(
+        IEventSymbol eventSymbol,
+        string eventName,
+        IEventSymbol targetEventSymbol
+    )
+    {
+        var comparer = SymbolEqualityComparer.Default;
+
+        return
+            eventName.Equals(targetEventSymbol.Name) &&
+            comparer.Equals(eventSymbol.Type, targetEventSymbol.Type);
     }
 }

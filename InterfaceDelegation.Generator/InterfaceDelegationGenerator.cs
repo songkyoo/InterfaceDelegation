@@ -533,6 +533,57 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add($"}}");
                 }
             }
+            else if (symbol is IEventSymbol eventSymbol)
+            {
+                if (builder.Count > 0)
+                {
+                    builder.Add("");
+                }
+
+                var eventType = eventSymbol.Type.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+                    IncludeNullableReferenceTypeModifier | UseSpecialTypes
+                ));
+                var eventName = eventSymbol.Name;
+
+                builder.Add($"{accessibility}{@override}event {eventType} {@interface}{symbolName}");
+                builder.Add("{");
+
+                if (isMemberImplementingInterface)
+                {
+                    if (isField)
+                    {
+                        builder.Add($"{Space}add");
+                        builder.Add($"{Space}{{");
+                        builder.Add($"{Space}{Space}__Add(in {declaredSymbolName}, value);");
+                        builder.Add("");
+                        builder.Add($"{Space}{Space}#region Local Functions");
+                        builder.Add($"{Space}{Space}static void __Add<__TImpl>(in __TImpl __impl, {eventType} value) where __TImpl : {interfaceTypeString} => __impl.{eventName} += value;");
+                        builder.Add($"{Space}{Space}#endregion");
+                        builder.Add($"{Space}}}");
+
+                        builder.Add($"{Space}remove");
+                        builder.Add($"{Space}{{");
+                        builder.Add($"{Space}{Space}__Remove(in {declaredSymbolName}, value);");
+                        builder.Add("");
+                        builder.Add($"{Space}{Space}#region Local Functions");
+                        builder.Add($"{Space}{Space}static void __Remove<__TImpl>(in __TImpl __impl, {eventType} value) where __TImpl : {interfaceTypeString} => __impl.{eventName} -= value;");
+                        builder.Add($"{Space}{Space}#endregion");
+                        builder.Add($"{Space}}}");
+                    }
+                    else
+                    {
+                        builder.Add($"{Space}add => (({interfaceTypeString}){declaredSymbolName}).{eventName} += value;");
+                        builder.Add($"{Space}remove => (({interfaceTypeString}){declaredSymbolName}).{eventName} -= value;");
+                    }
+                }
+                else
+                {
+                    builder.Add($"{Space}add => {declaredSymbolName}.{eventName} += value;");
+                    builder.Add($"{Space}remove => {declaredSymbolName}.{eventName} -= value;");
+                }
+
+                builder.Add("}");
+            }
         }
 
         return builder.ToImmutable();
@@ -576,6 +627,9 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                                 break;
                             case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
                                 overriddenSymbols.Add(overriddenProperty);
+                                break;
+                            case IEventSymbol { OverriddenEvent: { } overriddenEvent }:
+                                overriddenSymbols.Add(overriddenEvent);
                                 break;
                         }
 

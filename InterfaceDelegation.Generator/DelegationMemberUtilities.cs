@@ -3,7 +3,7 @@ using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class DelegationMemberHelpers
+internal static class DelegationMemberUtilities
 {
     internal readonly record struct MemberGenerationContext(
         ISymbol Symbol,

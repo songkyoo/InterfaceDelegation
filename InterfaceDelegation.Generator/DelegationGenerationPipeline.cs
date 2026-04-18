@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class DelegationCodeGenerator
+internal static class DelegationGenerationPipeline
 {
     public static ImmutableArray<string> Generate(GenerationContext context)
     {
@@ -16,12 +16,12 @@ internal static class DelegationCodeGenerator
 
     private static ImmutableArray<string> GenerateExpose(GenerationInterfaceContext context)
     {
-        var executionContext = DelegationExecutionContext.Create(context);
+        var executionContext = DelegationGenerationContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in ExposeDelegationPolicy.GetTargetMembers(context))
+        foreach (var symbol in ExposeGenerationPolicy.GetTargetMembers(context))
         {
-            var memberContext = ExposeDelegationPolicy.CreateMemberGenerationContext(
+            var memberContext = ExposeGenerationPolicy.CreateMemberGenerationContext(
                 context,
                 symbol,
                 executionContext.GetImplementedMember
@@ -31,8 +31,8 @@ internal static class DelegationCodeGenerator
                 continue;
             }
 
-            ExposeDelegationRendering.TryRenderMember(
-                DelegationRenderingHelpers.RenderContext.Create(executionContext, memberContext.Value),
+            ExposeRenderingPolicy.TryRenderMember(
+                DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
         }
@@ -42,12 +42,12 @@ internal static class DelegationCodeGenerator
 
     private static ImmutableArray<string> GenerateLift(GenerationLiftContext context)
     {
-        var executionContext = DelegationExecutionContext.Create(context);
+        var executionContext = DelegationGenerationContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in LiftDelegationPolicy.GetTargetMembers(context))
+        foreach (var symbol in LiftGenerationPolicy.GetTargetMembers(context))
         {
-            var memberContext = LiftDelegationPolicy.CreateMemberGenerationContext(
+            var memberContext = LiftGenerationPolicy.CreateMemberGenerationContext(
                 context,
                 symbol,
                 executionContext.GetImplementedMember
@@ -57,8 +57,8 @@ internal static class DelegationCodeGenerator
                 continue;
             }
 
-            LiftDelegationRendering.TryRenderMember(
-                DelegationRenderingHelpers.RenderContext.Create(executionContext, memberContext.Value),
+            LiftRenderingPolicy.TryRenderMember(
+                DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
         }

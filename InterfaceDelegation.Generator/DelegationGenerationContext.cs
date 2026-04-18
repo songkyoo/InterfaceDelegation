@@ -5,7 +5,7 @@ using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
-internal readonly record struct DelegationExecutionContext(
+internal readonly record struct DelegationGenerationContext(
     GenerationContext GenerationContext,
     ISymbol DeclaredSymbol,
     INamedTypeSymbol TypeSymbol,
@@ -17,7 +17,7 @@ internal readonly record struct DelegationExecutionContext(
     Func<ISymbol, string, bool, bool, ISymbol?> GetImplementedMember
 )
 {
-    public static DelegationExecutionContext Create(GenerationContext generationContext)
+    public static DelegationGenerationContext Create(GenerationContext generationContext)
     {
         var declaredSymbol = generationContext.DeclaredSymbol;
         var typeSymbol = declaredSymbol.ContainingType;
@@ -25,11 +25,11 @@ internal readonly record struct DelegationExecutionContext(
         var isLiftMode = generationContext is GenerationLiftContext;
         var isMemberImplementingInterface = generationContext switch
         {
-            GenerationInterfaceContext interfaceContext => ExposeDelegationPolicy.IsMemberImplementingInterface(interfaceContext),
+            GenerationInterfaceContext interfaceContext => ExposeGenerationPolicy.IsMemberImplementingInterface(interfaceContext),
             _ => false,
         };
 
-        return new DelegationExecutionContext(
+        return new DelegationGenerationContext(
             GenerationContext: generationContext,
             DeclaredSymbol: declaredSymbol,
             TypeSymbol: typeSymbol,

@@ -144,7 +144,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         continue;
                     }
 
-                    var lines = DelegationCodeGenerator.Generate(generationContext);
+                    var lines = DelegationGenerationPipeline.Generate(generationContext);
                     if (lines.IsEmpty)
                     {
                         continue;

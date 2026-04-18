@@ -8,13 +8,13 @@ using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class DelegationRenderingHelpers
+internal static class DelegationRenderingCore
 {
     private const string Space = "    ";
 
     internal readonly record struct RenderContext(
-        DelegationExecutionContext ExecutionContext,
-        DelegationMemberHelpers.MemberGenerationContext MemberContext,
+        DelegationGenerationContext ExecutionContext,
+        DelegationMemberUtilities.MemberGenerationContext MemberContext,
         bool IsLiftMode,
         bool IsMemberImplementingInterface,
         bool IsField,
@@ -23,8 +23,8 @@ internal static class DelegationRenderingHelpers
     )
     {
         public static RenderContext Create(
-            DelegationExecutionContext executionContext,
-            DelegationMemberHelpers.MemberGenerationContext memberContext
+            DelegationGenerationContext executionContext,
+            DelegationMemberUtilities.MemberGenerationContext memberContext
         )
         {
             return new RenderContext(

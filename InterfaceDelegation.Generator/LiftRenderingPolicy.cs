@@ -5,10 +5,10 @@ using static Microsoft.CodeAnalysis.MethodKind;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class ExposeDelegationRendering
+internal static class LiftRenderingPolicy
 {
     public static bool TryRenderMember(
-        DelegationRenderingHelpers.RenderContext context,
+        DelegationRenderingCore.RenderContext context,
         ImmutableArray<string>.Builder builder
     )
     {
@@ -22,37 +22,42 @@ internal static class ExposeDelegationRendering
     }
 
     private static bool TryRenderMethod(
-        DelegationRenderingHelpers.RenderContext context,
+        DelegationRenderingCore.RenderContext context,
         IMethodSymbol methodSymbol,
         ImmutableArray<string>.Builder builder
     )
     {
-        DelegationRenderingHelpers.RenderMethod(context, methodSymbol, builder);
-        return true;
-    }
-
-    private static bool TryRenderProperty(
-        DelegationRenderingHelpers.RenderContext context,
-        IPropertySymbol propertySymbol,
-        ImmutableArray<string>.Builder builder
-    )
-    {
-        if (propertySymbol.SetMethod?.IsInitOnly is true)
+        if (methodSymbol is not { IsImplicitlyDeclared: false })
         {
             return false;
         }
 
-        DelegationRenderingHelpers.RenderProperty(context, propertySymbol, builder);
+        DelegationRenderingCore.RenderMethod(context, methodSymbol, builder);
+        return true;
+    }
+
+    private static bool TryRenderProperty(
+        DelegationRenderingCore.RenderContext context,
+        IPropertySymbol propertySymbol,
+        ImmutableArray<string>.Builder builder
+    )
+    {
+        if (propertySymbol.IsIndexer)
+        {
+            return false;
+        }
+
+        DelegationRenderingCore.RenderProperty(context, propertySymbol, builder);
         return true;
     }
 
     private static bool TryRenderEvent(
-        DelegationRenderingHelpers.RenderContext context,
+        DelegationRenderingCore.RenderContext context,
         IEventSymbol eventSymbol,
         ImmutableArray<string>.Builder builder
     )
     {
-        DelegationRenderingHelpers.RenderEvent(context, eventSymbol, builder);
+        DelegationRenderingCore.RenderEvent(context, eventSymbol, builder);
         return true;
     }
 }

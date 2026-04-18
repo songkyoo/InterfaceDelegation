@@ -2,13 +2,13 @@ using Microsoft.CodeAnalysis;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class LiftDelegationPolicy
+internal static class LiftGenerationPolicy
 {
     public static IEnumerable<ISymbol> GetTargetMembers(GenerationLiftContext context)
     {
         var symbols = context.IncludeBaseTypes
-            ? DelegationMemberHelpers.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : DelegationMemberHelpers.GetMembers(context.DelegationTypeSymbol);
+            ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
+            : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
 
         foreach (var symbol in symbols)
         {
@@ -21,7 +21,7 @@ internal static class LiftDelegationPolicy
         }
     }
 
-    public static DelegationMemberHelpers.MemberGenerationContext? CreateMemberGenerationContext(
+    public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
         GenerationLiftContext context,
         ISymbol symbol,
         Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
@@ -35,7 +35,7 @@ internal static class LiftDelegationPolicy
             hasImplementedMember,
             isExplicit,
             isAbstract
-        ) = DelegationMemberHelpers.GetImplementationContext(
+        ) = DelegationMemberUtilities.GetImplementationContext(
             mode: "Lift",
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: getImplementedMember(symbol, symbolName, false, false),
@@ -47,7 +47,7 @@ internal static class LiftDelegationPolicy
             return null;
         }
 
-        return new DelegationMemberHelpers.MemberGenerationContext(
+        return new DelegationMemberUtilities.MemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
             IsExplicit: isExplicit,

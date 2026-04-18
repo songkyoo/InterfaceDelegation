@@ -4,7 +4,7 @@ using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class ExposeDelegationPolicy
+internal static class ExposeGenerationPolicy
 {
     public static bool IsMemberImplementingInterface(GenerationInterfaceContext context)
     {
@@ -16,13 +16,13 @@ internal static class ExposeDelegationPolicy
 
     public static IEnumerable<ISymbol> GetTargetMembers(GenerationInterfaceContext context)
     {
-        foreach (var symbol in DelegationMemberHelpers.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
+        foreach (var symbol in DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
         {
             yield return symbol;
         }
     }
 
-    public static DelegationMemberHelpers.MemberGenerationContext? CreateMemberGenerationContext(
+    public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
         GenerationInterfaceContext context,
         ISymbol symbol,
         Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
@@ -37,7 +37,7 @@ internal static class ExposeDelegationPolicy
             hasImplementedMember,
             isExplicit,
             isAbstract
-        ) = DelegationMemberHelpers.GetImplementationContext(
+        ) = DelegationMemberUtilities.GetImplementationContext(
             mode: mode,
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: getImplementedMember(symbol, symbolName, false, true),
@@ -49,7 +49,7 @@ internal static class ExposeDelegationPolicy
             return null;
         }
 
-        return new DelegationMemberHelpers.MemberGenerationContext(
+        return new DelegationMemberUtilities.MemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
             IsExplicit: isExplicit,

@@ -20,7 +20,24 @@ internal static class DelegationRenderingHelpers
         bool IsField,
         string DeclaredSymbolName,
         string InterfaceTypeString
-    );
+    )
+    {
+        public static RenderContext Create(
+            DelegationExecutionContext executionContext,
+            DelegationMemberHelpers.MemberGenerationContext memberContext
+        )
+        {
+            return new RenderContext(
+                ExecutionContext: executionContext,
+                MemberContext: memberContext,
+                IsLiftMode: executionContext.IsLiftMode,
+                IsMemberImplementingInterface: executionContext.IsMemberImplementingInterface,
+                IsField: executionContext.IsField,
+                DeclaredSymbolName: executionContext.DeclaredSymbolName,
+                InterfaceTypeString: executionContext.InterfaceTypeString
+            );
+        }
+    }
 
     public static bool TryRenderMember(RenderContext context, ImmutableArray<string>.Builder builder)
     {

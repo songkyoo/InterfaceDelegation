@@ -33,15 +33,23 @@ internal static class DelegationMemberHelpers
             .Contains(context.DelegationTypeSymbol, SymbolEqualityComparer.Default);
     }
 
-    public static IEnumerable<ISymbol> GetTargetMembers(GenerationContext context)
+    public static IEnumerable<ISymbol> GetExposeTargetMembers(GenerationInterfaceContext context)
     {
-        var includeBaseTypes = context is not GenerationLiftContext liftContext || liftContext.IncludeBaseTypes;
-        foreach (var symbol in includeBaseTypes
-            ? GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : GetMembers(context.DelegationTypeSymbol)
-        )
+        foreach (var symbol in GetMembersWithBaseTypes(context.DelegationTypeSymbol))
         {
-            if (context is GenerationLiftContext liftContext2 && !ShouldIncludeLiftSymbol(liftContext2, symbol))
+            yield return symbol;
+        }
+    }
+
+    public static IEnumerable<ISymbol> GetLiftTargetMembers(GenerationLiftContext context)
+    {
+        var symbols = context.IncludeBaseTypes
+            ? GetMembersWithBaseTypes(context.DelegationTypeSymbol)
+            : GetMembers(context.DelegationTypeSymbol);
+
+        foreach (var symbol in symbols)
+        {
+            if (!ShouldIncludeLiftSymbol(context, symbol))
             {
                 continue;
             }

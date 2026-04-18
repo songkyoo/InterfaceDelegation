@@ -18,40 +18,6 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     #endregion
 
     #region Static
-    private static ImmutableArray<string> GenerateDelegationCode(GenerationContext context)
-    {
-        var executionContext = DelegationExecutionContext.Create(context);
-        var builder = ImmutableArray.CreateBuilder<string>();
-
-        foreach (var symbol in DelegationMemberHelpers.GetTargetMembers(context))
-        {
-            var memberContext = DelegationMemberHelpers.CreateMemberGenerationContext(
-                executionContext.GenerationContext,
-                symbol,
-                executionContext.GetImplementedMember
-            );
-            if (memberContext == null)
-            {
-                continue;
-            }
-
-            DelegationRenderingHelpers.TryRenderMember(
-                new DelegationRenderingHelpers.RenderContext(
-                    ExecutionContext: executionContext,
-                    MemberContext: memberContext.Value,
-                    IsLiftMode: executionContext.IsLiftMode,
-                    IsMemberImplementingInterface: executionContext.IsMemberImplementingInterface,
-                    IsField: executionContext.IsField,
-                    DeclaredSymbolName: executionContext.DeclaredSymbolName,
-                    InterfaceTypeString: executionContext.InterfaceTypeString
-                ),
-                builder
-            );
-        }
-
-        return builder.ToImmutable();
-    }
-
     private static void AddSource(
         SourceProductionContext context,
         INamedTypeSymbol typeSymbol,
@@ -178,7 +144,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                         continue;
                     }
 
-                    var lines = GenerateDelegationCode(generationContext);
+                    var lines = DelegationCodeGenerator.Generate(generationContext);
                     if (lines.IsEmpty)
                     {
                         continue;

@@ -31,7 +31,27 @@
 ## 핵심 파일
 
 - [InterfaceDelegationGenerator.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\InterfaceDelegationGenerator.cs)
-  - 속성 탐지, generation context 생성, 멤버별 코드 생성, source output 등록까지 전부 담당하는 중심 파일.
+  - incremental generator 진입점.
+  - 후보 수집, generation context 수집, 타입별 source output 조립을 담당한다.
+- [GenerationContextFactory.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\GenerationContextFactory.cs)
+  - attribute를 읽어 `GenerationInterfaceContext` 또는 `GenerationLiftContext`로 바꾼다.
+  - `Expose` 사용 오류 진단도 여기서 만든다.
+- [DelegationGenerationPipeline.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\DelegationGenerationPipeline.cs)
+  - `Expose`와 `Lift`를 별도 생성 경로로 디스패치하는 파이프라인.
+- [DelegationGenerationContext.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\DelegationGenerationContext.cs)
+  - 생성 단계에서 공통으로 필요한 실행 상태를 묶는다.
+- [ExposeGenerationPolicy.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\ExposeGenerationPolicy.cs)
+  - `Expose` 전용 멤버 선택, 구현 충돌 판정, 접근 제한자/명시적 구현 규칙을 담는다.
+- [LiftGenerationPolicy.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\LiftGenerationPolicy.cs)
+  - `Lift` 전용 멤버 선택, 필터/리네임/base type 규칙, 충돌 판정을 담는다.
+- [ExposeRenderingPolicy.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\ExposeRenderingPolicy.cs)
+  - `Expose`에서 렌더링할 멤버 종류와 스킵 조건을 결정한다.
+- [LiftRenderingPolicy.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\LiftRenderingPolicy.cs)
+  - `Lift`에서 렌더링할 멤버 종류와 스킵 조건을 결정한다.
+- [DelegationRenderingCore.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\DelegationRenderingCore.cs)
+  - 메서드/프로퍼티/이벤트의 공통 문자열 렌더링 코어.
+- [DelegationMemberUtilities.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\DelegationMemberUtilities.cs)
+  - 멤버 열거, base type 순회, 구현 비교 같은 공통 저수준 유틸.
 - [MemberComparisonHelpers.cs](C:\Users\Gyu\dotnetProjects\InterfaceDelegation\InterfaceDelegation.Generator\MemberComparisonHelpers.cs)
   - 이미 구현된 멤버인지 판별하는 비교 로직.
   - 암시적 구현과 명시적 구현을 분리해서 추적한다.
@@ -45,10 +65,14 @@
 ## 생성기 동작 흐름
 
 1. `Initialize`에서 attribute가 붙은 field/property/primary-constructor parameter를 후보로 찾는다.
-2. `GetGenerationContexts`가 각 attribute를 읽어 `Expose` 또는 `Lift`용 context로 변환한다.
+2. `GenerationContextFactory.Create`가 각 attribute를 읽어 `Expose` 또는 `Lift`용 context로 변환한다.
 3. 잘못된 `Expose` 사용은 즉시 diagnostic으로 바꾼다.
-4. containing type 기준으로 context를 묶은 뒤, 각 context에서 생성할 멤버 코드를 모은다.
-5. `AddSource`가 namespace, 중첩 타입, partial 타입 래퍼를 포함한 `.g.cs`를 만든다.
+4. containing type 기준으로 context를 묶은 뒤, `DelegationGenerationPipeline.Generate`가 각 context별 코드를 생성한다.
+5. `DelegationGenerationPipeline` 내부에서
+   - `ExposeGenerationPolicy` 또는 `LiftGenerationPolicy`가 대상 멤버와 생성 규칙을 결정한다.
+   - `ExposeRenderingPolicy` 또는 `LiftRenderingPolicy`가 렌더링할 멤버를 고른다.
+   - `DelegationRenderingCore`가 공통 코드 문자열을 만든다.
+6. `AddSource`가 namespace, 중첩 타입, partial 타입 래퍼를 포함한 `.g.cs`를 만든다.
 
 ## Expose 규칙
 
@@ -84,8 +108,13 @@
   - README에는 과거 경고 문구가 남아 있을 수 있으므로 실제 코드와 문서를 비교해서 판단해야 한다.
 - base class에 추상 멤버가 있으면 `override`를 생성한다.
 - 현재 타입 자체에 abstract 멤버가 있으면 새 구현을 만들지 않고 건너뛴다.
-- property/indexer/event/method 각각 생성 방식이 조금씩 다르므로 수정 시 분기 누락에 주의해야 한다.
-- `GenerateDelegationCode`가 매우 큰 편이라 기능 추가 시 회귀 범위가 넓다.
+- 현재 구조는 크게 네 층으로 나뉜다.
+  - context 생성: `GenerationContextFactory`
+  - 생성 파이프라인: `DelegationGenerationPipeline`, `DelegationGenerationContext`
+  - 정책: `ExposeGenerationPolicy`, `LiftGenerationPolicy`, `ExposeRenderingPolicy`, `LiftRenderingPolicy`
+  - 공통 저수준/렌더링 코어: `DelegationMemberUtilities`, `DelegationRenderingCore`
+- property/indexer/event/method는 공통 렌더링 코어에서 다루지만, 어떤 멤버를 실제로 렌더링할지는 정책 파일에서 결정한다.
+- 새 기능 추가 시 먼저 그것이 `Expose` 정책인지, `Lift` 정책인지, 공통 렌더링 코어인지 구분하고 손대는 편이 안전하다.
 - hint name은 타입명과 FNV-1a 기반 해시를 섞어서 생성한다.
 
 ## 테스트가 보장하는 것
@@ -107,17 +136,23 @@
   - 결과: `Passed 38/38`
 - 샌드박스에서는 `dotnet test`가 로컬 SDK 경로 접근 제한 때문에 실패할 수 있었다.
   - 필요한 경우 권한 상승으로 재실행하면 통과한다.
-- 이 작업 시작 시점에 이미 작업 트리가 더러워져 있었다.
-  - 수정됨: `InterfaceDelegation.Generator/SourceGenerationHelpers.cs`
-  - 수정됨: `InterfaceDelegation.Tests/InterfaceDelegation.Tests.csproj`
-  - 신규 파일: `InterfaceDelegation.Tests/Test.cs`
-- 위 파일들은 이번 분석 작업에서 건드리지 않았다.
+- 최근 리팩토링으로 생성기 구조가 크게 정리되었다.
+  - attribute/context 분리
+  - 멤버 선택 분리
+  - 렌더링 분리
+  - 실행 컨텍스트 분리
+  - `Expose`/`Lift` 생성 경로 분리
+  - 정책 로직 분리
+  - 렌더링 정책 분리
+  - 지원 타입 이름 정리
+- 현재 기준 작업 트리는 깨끗하다.
 
 ## 다음 작업에서 추천하는 접근
 
 - 동작 변경 전에는 먼저 `InterfaceDelegationGeneratorTests.cs`에서 가장 가까운 기존 테스트 패턴을 찾는다.
 - 생성 규칙을 바꿀 때는 가능하면 테스트를 먼저 추가하거나 기대 문자열을 같이 갱신한다.
-- `Expose`와 `Lift`는 멤버 선택 규칙이 다르므로 한쪽 수정이 다른 쪽에 어떤 영향을 주는지 항상 같이 본다.
+- `Expose`와 `Lift`는 이제 별도 정책/렌더링 파일을 가지므로, 수정 지점을 먼저 올바른 층에 배치하는 것이 중요하다.
+- 공통 기능을 수정할 때는 `DelegationMemberUtilities`나 `DelegationRenderingCore` 변경이 양쪽 경로에 모두 영향을 줄 수 있음을 항상 확인한다.
 - 문서 변경이 필요한지 `README.md`도 함께 확인한다. 특히 이벤트 지원 관련 설명은 우선 검토 대상이다.
 
 ## 자주 쓸 명령

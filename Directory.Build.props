@@ -1,0 +1,7 @@
+<Project>
+
+  <PropertyGroup>
+    <Version Condition="'$(IsPackable)' != 'false'">1.0.9</Version>
+  </PropertyGroup>
+
+</Project>

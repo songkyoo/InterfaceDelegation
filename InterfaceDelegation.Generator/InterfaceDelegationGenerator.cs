@@ -22,219 +22,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     private const string Explicit = nameof(ImplementationMode.Explicit);
     private const string Lift = nameof(Lift);
 
-    private const string ExposeAttributeString = "Macaron.InterfaceDelegation.ExposeAttribute";
-    private const string LiftAttributeString = "Macaron.InterfaceDelegation.LiftAttribute";
-
     private const string Space = "    ";
     #endregion
 
-    #region Types
-    private abstract record GenerationContext(
-        AttributeData Attribute,
-        ISymbol DeclaredSymbol,
-        ITypeSymbol DelegationTypeSymbol
-    );
-
-    private sealed record GenerationInterfaceContext(
-        AttributeData Attribute,
-        ISymbol DeclaredSymbol,
-        ITypeSymbol DelegationTypeSymbol,
-        ImplementationMode Mode
-    ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);
-
-    private sealed record GenerationLiftContext(
-        AttributeData Attribute,
-        ISymbol DeclaredSymbol,
-        ITypeSymbol DelegationTypeSymbol,
-        bool IncludeBaseTypes,
-        ImmutableHashSet<string> Filter,
-        ImmutableHashSet<string> Remove,
-        ImmutableDictionary<string, string> Rename
-    ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);
-    #endregion
-
-    #region Diagnostic Descriptors
-    private static readonly DiagnosticDescriptor InvalidImplementationTargetRule = new(
-        id: "MAID0001",
-        title: "Expose attribute requires a non-generic interface type",
-        messageFormat: "'{0}' is not a valid type for the Expose attribute. Only non-generic interfaces are allowed.",
-        category: "Usage",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true
-    );
-    private static readonly DiagnosticDescriptor ValueTypePropertyCannotBeDelegatedRule = new(
-        id: "MAID0002",
-        title: "Value type property cannot be delegated",
-        messageFormat: "Property '{0}' is of a value type and cannot be delegated using Expose",
-        category: "Usage",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true
-    );
-    private static readonly DiagnosticDescriptor DuplicateDelegationTargetRule = new(
-        id: "MAID0003",
-        title: "Duplicate Expose target",
-        messageFormat: "The interface '{0}' is delegated more than once in the same type",
-        category: "Usage",
-        defaultSeverity: DiagnosticSeverity.Error,
-        isEnabledByDefault: true
-    );
-    #endregion
-
     #region Static
-    private static ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)> GetGenerationContexts(
-        GeneratorSyntaxContext context
-    )
-    {
-        var declaredSymbol = context.Node switch
-        {
-            FieldDeclarationSyntax { Declaration.Variables: [var decl] } => GetDeclaredSymbol(decl),
-            PropertyDeclarationSyntax decl => GetDeclaredSymbol(decl),
-            ParameterSyntax decl => GetDeclaredSymbol(decl),
-            _ => null,
-        };
-        if (declaredSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
-        {
-            return ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)>.Empty;
-        }
-
-        var builder = ImmutableArray.CreateBuilder<(GenerationContext?, ImmutableArray<Diagnostic>)>();
-        foreach (var attributeData in declaredSymbol.GetAttributes())
-        {
-            var constructorArguments = attributeData.ConstructorArguments;
-            var attributeString = attributeData.AttributeClass?.ToDisplayString();
-
-            if (attributeString == ExposeAttributeString)
-            {
-                if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
-                {
-                    builder.Add((
-                        (GenerationInterfaceContext?)null,
-                        ImmutableArray.Create(Diagnostic.Create(
-                            descriptor: ValueTypePropertyCannotBeDelegatedRule,
-                            location: declaredSymbol.Locations.FirstOrDefault(),
-                            messageArgs: [declaredSymbol.Name]
-                        ))
-                    ));
-                }
-                else if (constructorArguments[0].Value is var constructorArgument)
-                {
-                    var interfaceTypeSymbol = constructorArgument == null
-                        ? declaredSymbol switch
-                        {
-                            IFieldSymbol field => (INamedTypeSymbol)field.Type,
-                            IPropertySymbol property => (INamedTypeSymbol)property.Type,
-                            IParameterSymbol parameter => (INamedTypeSymbol)parameter.Type,
-                            _ => null,
-                        }
-                        : constructorArgument as INamedTypeSymbol;
-
-                    if (interfaceTypeSymbol == null)
-                    {
-                        builder.Add((
-                            (GenerationInterfaceContext?)null,
-                            ImmutableArray.Create(Diagnostic.Create(
-                                descriptor: InvalidImplementationTargetRule,
-                                location: GetTypeArgumentLocation(attributeData),
-                                messageArgs: [constructorArguments[0].Value]
-                            ))
-                        ));
-                        continue;
-                    }
-
-                    if (interfaceTypeSymbol.TypeKind is not TypeKind.Interface || interfaceTypeSymbol.IsUnboundGenericType)
-                    {
-                        builder.Add((
-                            (GenerationInterfaceContext?)null,
-                            ImmutableArray.Create(Diagnostic.Create(
-                                descriptor: InvalidImplementationTargetRule,
-                                location: GetTypeArgumentLocation(attributeData),
-                                messageArgs: [interfaceTypeSymbol.ToDisplayString()]
-                            ))
-                        ));
-                        continue;
-                    }
-
-                    builder.Add((
-                        new GenerationInterfaceContext(
-                            Attribute: attributeData,
-                            DeclaredSymbol: declaredSymbol,
-                            DelegationTypeSymbol: interfaceTypeSymbol,
-                            Mode: GetImplementationMode(constructorArguments)
-                        ),
-                        ImmutableArray<Diagnostic>.Empty
-                    ));
-                }
-            }
-            else if (attributeString == LiftAttributeString)
-            {
-                builder.Add((
-                    new GenerationLiftContext(
-                        Attribute: attributeData,
-                        DeclaredSymbol: declaredSymbol,
-                        DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
-                        IncludeBaseTypes: constructorArguments[0].Value is true,
-                        Filter: GetStringArray(constructorArguments[1]).ToImmutableHashSet(),
-                        Remove: GetStringArray(constructorArguments[2]).ToImmutableHashSet(),
-                        Rename: GetStringArray(constructorArguments[3])
-                            .Where(IsNotNullOrWhiteSpace)
-                            .Select(ToPair)
-                            .Where(pair => pair != null)
-                            .Select(pair => pair!.Value)
-                            .ToImmutableDictionary()
-                    ),
-                    ImmutableArray<Diagnostic>.Empty
-                ));
-
-                #region Local Functions
-                static string[] GetStringArray(TypedConstant constant)
-                {
-                    return !constant.IsNull
-                        ? constant.Values.Select(static constant => (string?)constant.Value ?? "").ToArray()
-                        : [];
-                }
-
-                static bool IsNotNullOrWhiteSpace(string? value)
-                {
-                    return !string.IsNullOrWhiteSpace(value);
-                }
-
-                static KeyValuePair<string, string>? ToPair(string value)
-                {
-                    var values = value.Split(':').Select(static value => value.Trim()).ToArray();
-                    return values.Length != 2 || values.Any(static value => value.Length < 1)
-                        ? null
-                        : new KeyValuePair<string, string>(values[0], values[1]);
-                }
-                #endregion
-            }
-
-            #region Local Functions
-            static Location? GetTypeArgumentLocation(AttributeData attributeData)
-            {
-                var syntax = attributeData.ApplicationSyntaxReference?.GetSyntax();
-                return syntax is AttributeSyntax { ArgumentList: { Arguments.Count: > 0 } argList }
-                    ? argList.Arguments[0].GetLocation()
-                    : null;
-            }
-            #endregion
-        }
-
-        return builder.ToImmutable();
-
-        #region Local Functions
-        static ImplementationMode GetImplementationMode(ImmutableArray<TypedConstant> constructorArguments)
-        {
-            return (ImplementationMode)(constructorArguments[1].Value ?? 0) switch
-            {
-                var value and ImplementationMode.Explicit => value,
-                _ => ImplementationMode.Implicit,
-            };
-        }
-
-        ISymbol? GetDeclaredSymbol(SyntaxNode node) => context.SemanticModel.GetDeclaredSymbol(node);
-        #endregion
-    }
-
     private static ImmutableArray<string> GenerateDelegationCode(GenerationContext context)
     {
         var (
@@ -245,7 +36,10 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
         var isLiftMode = context is GenerationLiftContext;
         var isMemberImplementingInterface =
-            !isLiftMode && IsImplementingInterface(GetDeclaredSymbolType(declaredSymbol), delegationTypeSymbol);
+            !isLiftMode && IsImplementingInterface(
+                GenerationContextFactory.GetDeclaredSymbolType(declaredSymbol),
+                delegationTypeSymbol
+            );
         var isField = declaredSymbol is IFieldSymbol;
 
         var typeSymbol = declaredSymbol.ContainingType;
@@ -707,14 +501,6 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         #endregion
     }
 
-    private static ITypeSymbol GetDeclaredSymbolType(ISymbol symbol) => symbol switch
-    {
-        IFieldSymbol fieldSymbol => fieldSymbol.Type,
-        IPropertySymbol propertySymbol => propertySymbol.Type,
-        IParameterSymbol parameterSymbol => parameterSymbol.Type,
-        _ => throw new InvalidOperationException($"Unexpected symbol type: {symbol.GetType().Name}"),
-    };
-
     private static void AddSource(
         SourceProductionContext context,
         INamedTypeSymbol typeSymbol,
@@ -803,7 +589,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
             .SyntaxProvider
             .CreateSyntaxProvider(
                 predicate: static (syntaxNode, _) => IsCandidateMember(syntaxNode),
-                transform: static (generatorSyntaxContext, _) => GetGenerationContexts(generatorSyntaxContext)
+                transform: static (generatorSyntaxContext, _) => GenerationContextFactory.Create(generatorSyntaxContext)
             )
             .SelectMany(static (generationContexts, _) => generationContexts);
 
@@ -833,7 +619,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     )
                     {
                         sourceProductionContext.ReportDiagnostic(Diagnostic.Create(
-                            descriptor: DuplicateDelegationTargetRule,
+                            descriptor: GenerationDiagnostics.DuplicateDelegationTargetRule,
                             location: generationContext.Attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation(),
                             messageArgs: [generationContext.DelegationTypeSymbol]
                         ));

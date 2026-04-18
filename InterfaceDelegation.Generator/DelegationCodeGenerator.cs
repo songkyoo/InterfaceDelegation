@@ -19,10 +19,10 @@ internal static class DelegationCodeGenerator
         var executionContext = DelegationExecutionContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in DelegationMemberHelpers.GetExposeTargetMembers(context))
+        foreach (var symbol in ExposeDelegationPolicy.GetTargetMembers(context))
         {
-            var memberContext = DelegationMemberHelpers.CreateMemberGenerationContext(
-                executionContext.GenerationContext,
+            var memberContext = ExposeDelegationPolicy.CreateMemberGenerationContext(
+                context,
                 symbol,
                 executionContext.GetImplementedMember
             );
@@ -45,10 +45,10 @@ internal static class DelegationCodeGenerator
         var executionContext = DelegationExecutionContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
 
-        foreach (var symbol in DelegationMemberHelpers.GetLiftTargetMembers(context))
+        foreach (var symbol in LiftDelegationPolicy.GetTargetMembers(context))
         {
-            var memberContext = DelegationMemberHelpers.CreateMemberGenerationContext(
-                executionContext.GenerationContext,
+            var memberContext = LiftDelegationPolicy.CreateMemberGenerationContext(
+                context,
                 symbol,
                 executionContext.GetImplementedMember
             );

@@ -23,13 +23,18 @@ internal readonly record struct DelegationExecutionContext(
         var typeSymbol = declaredSymbol.ContainingType;
         var delegationTypeSymbol = generationContext.DelegationTypeSymbol;
         var isLiftMode = generationContext is GenerationLiftContext;
+        var isMemberImplementingInterface = generationContext switch
+        {
+            GenerationInterfaceContext interfaceContext => ExposeDelegationPolicy.IsMemberImplementingInterface(interfaceContext),
+            _ => false,
+        };
 
         return new DelegationExecutionContext(
             GenerationContext: generationContext,
             DeclaredSymbol: declaredSymbol,
             TypeSymbol: typeSymbol,
             IsLiftMode: isLiftMode,
-            IsMemberImplementingInterface: DelegationMemberHelpers.IsMemberImplementingInterface(generationContext),
+            IsMemberImplementingInterface: isMemberImplementingInterface,
             IsField: declaredSymbol is IFieldSymbol,
             DeclaredSymbolName: declaredSymbol.Name,
             InterfaceTypeString: isLiftMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat),

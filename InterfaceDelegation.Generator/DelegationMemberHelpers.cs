@@ -1,16 +1,10 @@
 using Microsoft.CodeAnalysis;
-
-using static Microsoft.CodeAnalysis.Accessibility;
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
 internal static class DelegationMemberHelpers
 {
-    private const string Implicit = nameof(ImplementationMode.Implicit);
-    private const string Explicit = nameof(ImplementationMode.Explicit);
-    private const string Lift = nameof(Lift);
-
     internal readonly record struct MemberGenerationContext(
         ISymbol Symbol,
         string SymbolName,
@@ -20,133 +14,7 @@ internal static class DelegationMemberHelpers
         string InterfacePrefix
     );
 
-    public static bool IsMemberImplementingInterface(GenerationContext context)
-    {
-        if (context is GenerationLiftContext)
-        {
-            return false;
-        }
-
-        return GenerationContextFactory
-            .GetDeclaredSymbolType(context.DeclaredSymbol)
-            .Interfaces
-            .Contains(context.DelegationTypeSymbol, SymbolEqualityComparer.Default);
-    }
-
-    public static IEnumerable<ISymbol> GetExposeTargetMembers(GenerationInterfaceContext context)
-    {
-        foreach (var symbol in GetMembersWithBaseTypes(context.DelegationTypeSymbol))
-        {
-            yield return symbol;
-        }
-    }
-
-    public static IEnumerable<ISymbol> GetLiftTargetMembers(GenerationLiftContext context)
-    {
-        var symbols = context.IncludeBaseTypes
-            ? GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : GetMembers(context.DelegationTypeSymbol);
-
-        foreach (var symbol in symbols)
-        {
-            if (!ShouldIncludeLiftSymbol(context, symbol))
-            {
-                continue;
-            }
-
-            yield return symbol;
-        }
-    }
-
-    public static MemberGenerationContext? CreateMemberGenerationContext(
-        GenerationContext context,
-        ISymbol symbol,
-        Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
-    )
-    {
-        var typeSymbol = context.DeclaredSymbol.ContainingType;
-        var symbolName = GetGeneratedSymbolName(context, symbol);
-        var mode = GetGenerationMode(context, symbolName, typeSymbol.Name);
-        var checkReturnType = context is not GenerationLiftContext;
-
-        var (
-            hasImplementedMember,
-            isExplicit,
-            isAbstract
-        ) = GetImplementationContext(
-            mode: mode,
-            containingTypeSymbol: typeSymbol,
-            implicitMemberSymbol: getImplementedMember(symbol, symbolName, false, checkReturnType),
-            explicitMemberSymbol: getImplementedMember(symbol, symbolName, true, checkReturnType)
-        );
-
-        if (hasImplementedMember)
-        {
-            return null;
-        }
-
-        return new MemberGenerationContext(
-            Symbol: symbol,
-            SymbolName: symbolName,
-            IsExplicit: isExplicit,
-            IsAbstract: isAbstract,
-            Accessibility: GetAccessibilityPrefix(context, symbol, isExplicit),
-            InterfacePrefix: isExplicit
-                ? $"{context.DelegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
-                : ""
-        );
-    }
-
-    private static string GetGeneratedSymbolName(GenerationContext context, ISymbol symbol)
-    {
-        if (context is GenerationLiftContext liftContext &&
-            liftContext.Rename.TryGetValue(symbol.Name, out var renamed))
-        {
-            return renamed;
-        }
-
-        return symbol.Name;
-    }
-
-    private static string GetGenerationMode(GenerationContext context, string symbolName, string typeName)
-    {
-        return context switch
-        {
-            GenerationLiftContext => Lift,
-            GenerationInterfaceContext { Mode: ImplementationMode.Explicit } => Explicit,
-            _ when symbolName == typeName => Explicit,
-            _ => Implicit,
-        };
-    }
-
-    private static string GetAccessibilityPrefix(GenerationContext context, ISymbol symbol, bool isExplicit)
-    {
-        if (isExplicit)
-        {
-            return "";
-        }
-
-        return context is GenerationLiftContext
-            ? $"{symbol.DeclaredAccessibility.ToString().ToLower()} "
-            : "public ";
-    }
-
-    private static bool ShouldIncludeLiftSymbol(GenerationLiftContext context, ISymbol symbol)
-    {
-        if (symbol.DeclaredAccessibility is not Public and not Internal)
-        {
-            return false;
-        }
-
-        if (!context.Filter.IsEmpty && !context.Filter.Contains(symbol.Name))
-        {
-            return false;
-        }
-
-        return !context.Remove.Contains(symbol.Name);
-    }
-
-    private static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
+    public static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
     {
         if (typeSymbol.TypeKind == TypeKind.Interface)
         {
@@ -197,7 +65,7 @@ internal static class DelegationMemberHelpers
         }
     }
 
-    private static IEnumerable<ISymbol> GetMembers(ITypeSymbol typeSymbol)
+    public static IEnumerable<ISymbol> GetMembers(ITypeSymbol typeSymbol)
     {
         foreach (var memberSymbol in typeSymbol.GetMembers())
         {
@@ -208,7 +76,7 @@ internal static class DelegationMemberHelpers
         }
     }
 
-    private static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
+    public static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
         string mode,
         ITypeSymbol? containingTypeSymbol,
         ISymbol? implicitMemberSymbol,
@@ -223,16 +91,16 @@ internal static class DelegationMemberHelpers
 
         var result = mode switch
         {
-            Implicit => (implicitMemberSymbol, explicitMemberSymbol) switch
+            nameof(ImplementationMode.Implicit) => (implicitMemberSymbol, explicitMemberSymbol) switch
             {
                 (null, null) => defaultValue,
                 ({ IsAbstract: true }, null) => defaultValue with { isAbstract = true },
                 _ => defaultValue with { hasImplementedMember = true },
             },
-            Explicit => explicitMemberSymbol == null
+            nameof(ImplementationMode.Explicit) => explicitMemberSymbol == null
                 ? defaultValue with { isExplicit = true }
                 : defaultValue with { hasImplementedMember = true },
-            Lift => implicitMemberSymbol switch
+            "Lift" => implicitMemberSymbol switch
             {
                 null => defaultValue,
                 { IsAbstract: true } => defaultValue with { isAbstract = true },

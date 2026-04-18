@@ -83,6 +83,16 @@ internal static class GenerationContextFactory
             );
         }
 
+        var exposeContractDiagnostics = CreateExposeContractDiagnostics(
+            attributeData,
+            GetDeclaredSymbolType(declaredSymbol),
+            interfaceTypeSymbol
+        );
+        if (!exposeContractDiagnostics.IsEmpty)
+        {
+            return (null, exposeContractDiagnostics);
+        }
+
         return (
             new GenerationInterfaceContext(
                 Attribute: attributeData,
@@ -201,6 +211,38 @@ internal static class GenerationContextFactory
             parameterName: "rename",
             getMemberName: static value => ToRenamePair(value)?.Key
         );
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<Diagnostic> CreateExposeContractDiagnostics(
+        AttributeData attributeData,
+        ITypeSymbol targetTypeSymbol,
+        INamedTypeSymbol interfaceTypeSymbol
+    )
+    {
+        var builder = ImmutableArray.CreateBuilder<Diagnostic>();
+        var location = GetTypeArgumentLocation(attributeData) ??
+            attributeData.ApplicationSyntaxReference?.GetSyntax().GetLocation();
+
+        foreach (var interfaceMember in DelegationMemberUtilities.GetMembersWithBaseTypes(interfaceTypeSymbol))
+        {
+            if (interfaceMember is not IMethodSymbol { MethodKind: Microsoft.CodeAnalysis.MethodKind.Ordinary } &&
+                interfaceMember is not IPropertySymbol &&
+                interfaceMember is not IEventSymbol)
+            {
+                continue;
+            }
+
+            if (!MemberComparisonHelpers.HasCompatibleImplementation(targetTypeSymbol, interfaceTypeSymbol, interfaceMember))
+            {
+                builder.Add(Diagnostic.Create(
+                    descriptor: GenerationDiagnostics.ExposeMemberNotImplementedRule,
+                    location: location,
+                    messageArgs: [targetTypeSymbol.ToDisplayString(), interfaceMember.ToDisplayString()]
+                ));
+            }
+        }
 
         return builder.ToImmutable();
     }

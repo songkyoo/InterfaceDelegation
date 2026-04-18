@@ -39,4 +39,13 @@ internal static class GenerationDiagnostics
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true
     );
+
+    public static readonly DiagnosticDescriptor ExposeMemberNotImplementedRule = new(
+        id: "MAID0005",
+        title: "Expose target does not implement an interface member",
+        messageFormat: "The target type '{0}' does not implement interface member '{1}' required by Expose",
+        category: "Usage",
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
 }

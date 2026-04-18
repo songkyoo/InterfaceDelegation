@@ -5,6 +5,63 @@ namespace Macaron.InterfaceDelegation;
 
 public static class MemberComparisonHelpers
 {
+    public static bool HasCompatibleImplementation(
+        ITypeSymbol typeSymbol,
+        ITypeSymbol interfaceSymbol,
+        ISymbol interfaceMemberSymbol
+    )
+    {
+        var symbolComparer = SymbolEqualityComparer.Default;
+
+        foreach (var memberSymbol in GetComparableMembers(typeSymbol))
+        {
+            switch (interfaceMemberSymbol)
+            {
+                case IMethodSymbol methodSymbol when memberSymbol is IMethodSymbol targetMethodSymbol:
+                    if (targetMethodSymbol is
+                        {
+                            MethodKind: MethodKind.ExplicitInterfaceImplementation,
+                            ExplicitInterfaceImplementations: var explicitImplementations,
+                        } &&
+                        explicitImplementations.Any(explicitSymbol => symbolComparer.Equals(explicitSymbol, methodSymbol)))
+                    {
+                        return true;
+                    }
+
+                    if (targetMethodSymbol.MethodKind == MethodKind.Ordinary &&
+                        MatchesMethodSignature(methodSymbol, methodSymbol.Name, targetMethodSymbol, checkReturnType: true))
+                    {
+                        return true;
+                    }
+                    break;
+                case IPropertySymbol propertySymbol when memberSymbol is IPropertySymbol targetPropertySymbol:
+                    if (targetPropertySymbol.ExplicitInterfaceImplementations.Any(explicitSymbol => symbolComparer.Equals(explicitSymbol, propertySymbol)))
+                    {
+                        return true;
+                    }
+
+                    if (MatchesPropertySignature(propertySymbol, propertySymbol.Name, targetPropertySymbol))
+                    {
+                        return true;
+                    }
+                    break;
+                case IEventSymbol eventSymbol when memberSymbol is IEventSymbol targetEventSymbol:
+                    if (targetEventSymbol.ExplicitInterfaceImplementations.Any(explicitSymbol => symbolComparer.Equals(explicitSymbol, eventSymbol)))
+                    {
+                        return true;
+                    }
+
+                    if (MatchesEventSignature(eventSymbol, eventSymbol.Name, targetEventSymbol))
+                    {
+                        return true;
+                    }
+                    break;
+            }
+        }
+
+        return false;
+    }
+
     public static Func<ISymbol, string, bool, bool, ISymbol?> BuildMemberComparer(
         ITypeSymbol typeSymbol,
         ITypeSymbol interfaceSymbol
@@ -157,7 +214,7 @@ public static class MemberComparisonHelpers
         #endregion
     }
 
-    private static bool MatchesMethodSignature(
+    internal static bool MatchesMethodSignature(
         IMethodSymbol methodSymbol,
         string methodName,
         IMethodSymbol targetMethodSymbol,
@@ -177,6 +234,11 @@ public static class MemberComparisonHelpers
         }
 
         if (methodSymbol.Parameters.Length != targetMethodSymbol.Parameters.Length)
+        {
+            return false;
+        }
+
+        if (methodSymbol.Arity != targetMethodSymbol.Arity)
         {
             return false;
         }
@@ -205,7 +267,7 @@ public static class MemberComparisonHelpers
         return true;
     }
 
-    private static bool MatchesPropertySignature(
+    internal static bool MatchesPropertySignature(
         IPropertySymbol propertySymbol,
         string propertyName,
         IPropertySymbol targetPropertySymbol
@@ -213,12 +275,34 @@ public static class MemberComparisonHelpers
     {
         var comparer = SymbolEqualityComparer.Default;
 
-        return
-            propertyName.Equals(targetPropertySymbol.Name) &&
-            comparer.Equals(propertySymbol.Type, targetPropertySymbol.Type);
+        if (!propertyName.Equals(targetPropertySymbol.Name) ||
+            !comparer.Equals(propertySymbol.Type, targetPropertySymbol.Type) ||
+            propertySymbol.Parameters.Length != targetPropertySymbol.Parameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < propertySymbol.Parameters.Length; i++)
+        {
+            var paramSymbol = propertySymbol.Parameters[i];
+            var targetParamSymbol = targetPropertySymbol.Parameters[i];
+
+            if (!comparer.Equals(paramSymbol.Type, targetParamSymbol.Type) ||
+                paramSymbol.RefKind != targetParamSymbol.RefKind)
+            {
+                return false;
+            }
+        }
+
+        if (propertySymbol.GetMethod != null && targetPropertySymbol.GetMethod == null)
+        {
+            return false;
+        }
+
+        return propertySymbol.SetMethod == null || targetPropertySymbol.SetMethod != null;
     }
 
-    private static bool MatchesEventSignature(
+    internal static bool MatchesEventSignature(
         IEventSymbol eventSymbol,
         string eventName,
         IEventSymbol targetEventSymbol
@@ -229,5 +313,29 @@ public static class MemberComparisonHelpers
         return
             eventName.Equals(targetEventSymbol.Name) &&
             comparer.Equals(eventSymbol.Type, targetEventSymbol.Type);
+    }
+
+    private static IEnumerable<ISymbol> GetComparableMembers(ITypeSymbol typeSymbol)
+    {
+        if (typeSymbol.TypeKind == TypeKind.Interface)
+        {
+            foreach (var memberSymbol in DelegationMemberUtilities.GetMembersWithBaseTypes(typeSymbol))
+            {
+                if (!memberSymbol.IsStatic)
+                {
+                    yield return memberSymbol;
+                }
+            }
+
+            yield break;
+        }
+
+        foreach (var memberSymbol in GetMembersWithBaseTypes(typeSymbol))
+        {
+            if (!memberSymbol.IsStatic)
+            {
+                yield return memberSymbol;
+            }
+        }
     }
 }

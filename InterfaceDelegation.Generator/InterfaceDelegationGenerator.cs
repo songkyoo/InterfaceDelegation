@@ -20,29 +20,15 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
     #region Static
     private static ImmutableArray<string> GenerateDelegationCode(GenerationContext context)
     {
-        var (
-            _,
-            declaredSymbol,
-            delegationTypeSymbol
-        ) = context;
-
-        var isLiftMode = context is GenerationLiftContext;
-        var isMemberImplementingInterface = DelegationMemberHelpers.IsMemberImplementingInterface(context);
-        var isField = declaredSymbol is IFieldSymbol;
-
-        var typeSymbol = declaredSymbol.ContainingType;
-        var declaredSymbolName = declaredSymbol.Name;
-        var interfaceTypeString = isLiftMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat);
-
-        var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
+        var executionContext = DelegationExecutionContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
 
         foreach (var symbol in DelegationMemberHelpers.GetTargetMembers(context))
         {
             var memberContext = DelegationMemberHelpers.CreateMemberGenerationContext(
-                context,
+                executionContext.GenerationContext,
                 symbol,
-                getImplementedMember
+                executionContext.GetImplementedMember
             );
             if (memberContext == null)
             {
@@ -51,12 +37,13 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
 
             DelegationRenderingHelpers.TryRenderMember(
                 new DelegationRenderingHelpers.RenderContext(
+                    ExecutionContext: executionContext,
                     MemberContext: memberContext.Value,
-                    IsLiftMode: isLiftMode,
-                    IsMemberImplementingInterface: isMemberImplementingInterface,
-                    IsField: isField,
-                    DeclaredSymbolName: declaredSymbolName,
-                    InterfaceTypeString: interfaceTypeString
+                    IsLiftMode: executionContext.IsLiftMode,
+                    IsMemberImplementingInterface: executionContext.IsMemberImplementingInterface,
+                    IsField: executionContext.IsField,
+                    DeclaredSymbolName: executionContext.DeclaredSymbolName,
+                    InterfaceTypeString: executionContext.InterfaceTypeString
                 ),
                 builder
             );

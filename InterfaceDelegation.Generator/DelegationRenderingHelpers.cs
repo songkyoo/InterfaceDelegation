@@ -13,6 +13,7 @@ internal static class DelegationRenderingHelpers
     private const string Space = "    ";
 
     internal readonly record struct RenderContext(
+        DelegationExecutionContext ExecutionContext,
         DelegationMemberHelpers.MemberGenerationContext MemberContext,
         bool IsLiftMode,
         bool IsMemberImplementingInterface,

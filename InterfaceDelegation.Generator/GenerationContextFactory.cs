@@ -100,23 +100,28 @@ internal static class GenerationContextFactory
     )
     {
         var constructorArguments = attributeData.ConstructorArguments;
+        var includeBaseTypes = constructorArguments[0].Value is true;
+        var filter = GetStringArray(constructorArguments[1]).ToImmutableHashSet();
+        var remove = GetStringArray(constructorArguments[2]).ToImmutableHashSet();
+        var rename = GetStringArray(constructorArguments[3])
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(ToRenamePair)
+            .Where(static pair => pair != null)
+            .Select(static pair => pair!.Value)
+            .ToImmutableDictionary();
+        var delegationTypeSymbol = GetDeclaredSymbolType(declaredSymbol);
 
         return (
             new GenerationLiftContext(
                 Attribute: attributeData,
                 DeclaredSymbol: declaredSymbol,
-                DelegationTypeSymbol: GetDeclaredSymbolType(declaredSymbol),
-                IncludeBaseTypes: constructorArguments[0].Value is true,
-                Filter: GetStringArray(constructorArguments[1]).ToImmutableHashSet(),
-                Remove: GetStringArray(constructorArguments[2]).ToImmutableHashSet(),
-                Rename: GetStringArray(constructorArguments[3])
-                    .Where(static value => !string.IsNullOrWhiteSpace(value))
-                    .Select(ToRenamePair)
-                    .Where(static pair => pair != null)
-                    .Select(static pair => pair!.Value)
-                    .ToImmutableDictionary()
+                DelegationTypeSymbol: delegationTypeSymbol,
+                IncludeBaseTypes: includeBaseTypes,
+                Filter: filter,
+                Remove: remove,
+                Rename: rename
             ),
-            ImmutableArray<Diagnostic>.Empty
+            CreateLiftOptionDiagnostics(attributeData, delegationTypeSymbol, includeBaseTypes)
         );
     }
 
@@ -161,6 +166,202 @@ internal static class GenerationContextFactory
         return values.Length != 2 || values.Any(static part => part.Length < 1)
             ? null
             : new KeyValuePair<string, string>(values[0], values[1]);
+    }
+
+    private static ImmutableArray<Diagnostic> CreateLiftOptionDiagnostics(
+        AttributeData attributeData,
+        ITypeSymbol delegationTypeSymbol,
+        bool includeBaseTypes
+    )
+    {
+        var availableMemberNames = GetLiftConfigurableMembers(delegationTypeSymbol, includeBaseTypes)
+            .Select(static symbol => symbol.Name)
+            .ToImmutableHashSet();
+        var builder = ImmutableArray.CreateBuilder<Diagnostic>();
+
+        AddMissingLiftMemberDiagnostics(
+            builder,
+            attributeData,
+            delegationTypeSymbol,
+            availableMemberNames,
+            parameterName: "filter"
+        );
+        AddMissingLiftMemberDiagnostics(
+            builder,
+            attributeData,
+            delegationTypeSymbol,
+            availableMemberNames,
+            parameterName: "remove"
+        );
+        AddMissingLiftMemberDiagnostics(
+            builder,
+            attributeData,
+            delegationTypeSymbol,
+            availableMemberNames,
+            parameterName: "rename",
+            getMemberName: static value => ToRenamePair(value)?.Key
+        );
+
+        return builder.ToImmutable();
+    }
+
+    private static IEnumerable<ISymbol> GetLiftConfigurableMembers(ITypeSymbol delegationTypeSymbol, bool includeBaseTypes)
+    {
+        var members = includeBaseTypes
+            ? DelegationMemberUtilities.GetMembersWithBaseTypes(delegationTypeSymbol)
+            : DelegationMemberUtilities.GetMembers(delegationTypeSymbol);
+
+        foreach (var symbol in members)
+        {
+            if (symbol.DeclaredAccessibility is not Accessibility.Public and not Accessibility.Internal)
+            {
+                continue;
+            }
+
+            switch (symbol)
+            {
+                case IMethodSymbol { MethodKind: MethodKind.Ordinary, IsImplicitlyDeclared: false }:
+                case IPropertySymbol { IsIndexer: false }:
+                case IEventSymbol:
+                    yield return symbol;
+                    break;
+            }
+        }
+    }
+
+    private static void AddMissingLiftMemberDiagnostics(
+        ImmutableArray<Diagnostic>.Builder builder,
+        AttributeData attributeData,
+        ITypeSymbol delegationTypeSymbol,
+        ImmutableHashSet<string> availableMemberNames,
+        string parameterName,
+        Func<string, string?>? getMemberName = null
+    )
+    {
+        getMemberName ??= static value => value;
+
+        foreach (var (value, location) in GetAttributeStringValues(attributeData, parameterName))
+        {
+            var memberName = getMemberName(value);
+            if (string.IsNullOrWhiteSpace(memberName) || availableMemberNames.Contains(memberName!))
+            {
+                continue;
+            }
+
+            builder.Add(Diagnostic.Create(
+                descriptor: GenerationDiagnostics.LiftMemberNameNotFoundRule,
+                location: location,
+                messageArgs: [memberName, delegationTypeSymbol.ToDisplayString(), parameterName]
+            ));
+        }
+    }
+
+    private static ImmutableArray<(string Value, Location? Location)> GetAttributeStringValues(
+        AttributeData attributeData,
+        string parameterName
+    )
+    {
+        var constructor = attributeData.AttributeConstructor;
+        if (constructor == null)
+        {
+            return ImmutableArray<(string Value, Location? Location)>.Empty;
+        }
+
+        var parameterIndex = -1;
+        for (var i = 0; i < constructor.Parameters.Length; i++)
+        {
+            if (constructor.Parameters[i].Name == parameterName)
+            {
+                parameterIndex = i;
+                break;
+            }
+        }
+
+        if (parameterIndex < 0 || parameterIndex >= attributeData.ConstructorArguments.Length)
+        {
+            return ImmutableArray<(string Value, Location? Location)>.Empty;
+        }
+
+        var argumentSyntax = GetAttributeArgumentSyntax(attributeData, parameterName);
+        return GetStringValuesWithLocations(attributeData.ConstructorArguments[parameterIndex], argumentSyntax?.Expression);
+    }
+
+    private static AttributeArgumentSyntax? GetAttributeArgumentSyntax(AttributeData attributeData, string parameterName)
+    {
+        var syntax = attributeData.ApplicationSyntaxReference?.GetSyntax() as AttributeSyntax;
+        var arguments = syntax?.ArgumentList?.Arguments;
+        var constructor = attributeData.AttributeConstructor;
+        if (arguments == null || constructor == null)
+        {
+            return null;
+        }
+
+        var parameters = constructor.Parameters;
+
+        var positionalIndex = 0;
+        foreach (var argument in arguments.Value)
+        {
+            if (argument.NameColon is { Name.Identifier.ValueText: var nameColon })
+            {
+                if (nameColon == parameterName)
+                {
+                    return argument;
+                }
+
+                continue;
+            }
+
+            if (argument.NameEquals != null)
+            {
+                continue;
+            }
+
+            if (positionalIndex < parameters.Length && parameters[positionalIndex].Name == parameterName)
+            {
+                return argument;
+            }
+
+            positionalIndex++;
+        }
+
+        return null;
+    }
+
+    private static ImmutableArray<(string Value, Location? Location)> GetStringValuesWithLocations(
+        TypedConstant constant,
+        ExpressionSyntax? expression
+    )
+    {
+        if (constant.IsNull)
+        {
+            return ImmutableArray<(string Value, Location? Location)>.Empty;
+        }
+
+        var values = constant.Values.Select(static value => (string?)value.Value ?? "").ToImmutableArray();
+        if (values.IsEmpty)
+        {
+            return ImmutableArray<(string Value, Location? Location)>.Empty;
+        }
+
+        var expressions = expression switch
+        {
+            ArrayCreationExpressionSyntax { Initializer.Expressions: var items } => items,
+            ImplicitArrayCreationExpressionSyntax { Initializer.Expressions: var items } => items,
+            InitializerExpressionSyntax { Expressions: var items } => items,
+            { } item => [item],
+            _ => default,
+        };
+
+        var builder = ImmutableArray.CreateBuilder<(string Value, Location? Location)>(values.Length);
+        for (var i = 0; i < values.Length; i++)
+        {
+            var location = expressions != default && i < expressions.Count
+                ? expressions[i].GetLocation()
+                : expression?.GetLocation();
+            builder.Add((values[i], location));
+        }
+
+        return builder.ToImmutable();
     }
 
     private static Location? GetTypeArgumentLocation(AttributeData attributeData)

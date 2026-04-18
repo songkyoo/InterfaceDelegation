@@ -1720,6 +1720,50 @@ public class InterfaceDelegationGeneratorTests
     }
 
     [Test]
+    public void ReportsDiagnostic_When_LiftOptionReferencesMissingMember()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public class LiftTarget
+            {
+                public void Existing() { }
+            }
+
+            public partial class TestClass
+            {
+                [Lift(
+                    filter: new[] { "MissingFilter" },
+                    remove: new[] { "MissingRemove" },
+                    rename: new[] { "MissingRename:Renamed" }
+                )]
+                private readonly LiftTarget _impl = new();
+            }
+            """;
+
+        var (diagnostics, _) = CompileAndGetResults(sourceCode);
+        var maid0004Diagnostics = diagnostics
+            .Where(diagnostic => diagnostic.Id == "MAID0004")
+            .OrderBy(diagnostic => diagnostic.Location.SourceSpan.Start)
+            .ToArray();
+
+        Assert.That(maid0004Diagnostics, Has.Length.EqualTo(3));
+        Assert.That(maid0004Diagnostics.Select(diagnostic => diagnostic.GetMessage()), Is.EqualTo(new[]
+        {
+            "The member 'MissingFilter' was not found on 'Macaron.InterfaceDelegation.Tests.LiftTarget' for Lift option 'filter'",
+            "The member 'MissingRemove' was not found on 'Macaron.InterfaceDelegation.Tests.LiftTarget' for Lift option 'remove'",
+            "The member 'MissingRename' was not found on 'Macaron.InterfaceDelegation.Tests.LiftTarget' for Lift option 'rename'",
+        }));
+        Assert.That(maid0004Diagnostics.Select(diagnostic => diagnostic.Location.SourceSpan.Start), Is.EqualTo(new[]
+        {
+            sourceCode.IndexOf("\"MissingFilter\"", StringComparison.Ordinal),
+            sourceCode.IndexOf("\"MissingRemove\"", StringComparison.Ordinal),
+            sourceCode.IndexOf("\"MissingRename:Renamed\"", StringComparison.Ordinal),
+        }));
+    }
+
+    [Test]
     public void GeneratesDelegation_ForEvent()
     {
         AssertGeneratedCode(

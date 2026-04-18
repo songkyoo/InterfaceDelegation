@@ -31,7 +31,7 @@ internal static class DelegationCodeGenerator
                 continue;
             }
 
-            DelegationRenderingHelpers.TryRenderMember(
+            ExposeDelegationRendering.TryRenderMember(
                 DelegationRenderingHelpers.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
@@ -57,7 +57,7 @@ internal static class DelegationCodeGenerator
                 continue;
             }
 
-            DelegationRenderingHelpers.TryRenderMember(
+            LiftDelegationRendering.TryRenderMember(
                 DelegationRenderingHelpers.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );

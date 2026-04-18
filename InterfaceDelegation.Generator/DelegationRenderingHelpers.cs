@@ -39,24 +39,8 @@ internal static class DelegationRenderingHelpers
         }
     }
 
-    public static bool TryRenderMember(RenderContext context, ImmutableArray<string>.Builder builder)
+    public static void RenderMethod(RenderContext context, IMethodSymbol methodSymbol, ImmutableArray<string>.Builder builder)
     {
-        return context.MemberContext.Symbol switch
-        {
-            IMethodSymbol { MethodKind: Ordinary } methodSymbol => TryRenderMethod(context, methodSymbol, builder),
-            IPropertySymbol propertySymbol => TryRenderProperty(context, propertySymbol, builder),
-            IEventSymbol eventSymbol => TryRenderEvent(context, eventSymbol, builder),
-            _ => false,
-        };
-    }
-
-    private static bool TryRenderMethod(RenderContext context, IMethodSymbol methodSymbol, ImmutableArray<string>.Builder builder)
-    {
-        if (context.IsLiftMode && methodSymbol is not { IsImplicitlyDeclared: false })
-        {
-            return false;
-        }
-
         var symbolName = context.MemberContext.SymbolName;
         var isAbstract = context.MemberContext.IsAbstract;
         var accessibility = context.MemberContext.Accessibility;
@@ -109,25 +93,11 @@ internal static class DelegationRenderingHelpers
         {
             builder.Add($"{Space}=> {context.DeclaredSymbolName}.{methodName}{genericParameters}({arguments});");
         }
-
-        return true;
     }
 
-    private static bool TryRenderProperty(RenderContext context, IPropertySymbol propertySymbol, ImmutableArray<string>.Builder builder)
+    public static void RenderProperty(RenderContext context, IPropertySymbol propertySymbol, ImmutableArray<string>.Builder builder)
     {
         var isInitOnly = propertySymbol.SetMethod?.IsInitOnly is true;
-        if (context.IsLiftMode)
-        {
-            if (propertySymbol.IsIndexer)
-            {
-                return false;
-            }
-        }
-        else if (isInitOnly)
-        {
-            return false;
-        }
-
         var symbolName = context.MemberContext.SymbolName;
         var isAbstract = context.MemberContext.IsAbstract;
         var accessibility = context.MemberContext.Accessibility;
@@ -159,7 +129,7 @@ internal static class DelegationRenderingHelpers
             }
 
             builder.Add("}");
-            return true;
+            return;
         }
 
         builder.Add($"{accessibility}{@override}{propertyType} {@interface}{symbolName}");
@@ -176,10 +146,9 @@ internal static class DelegationRenderingHelpers
         }
 
         builder.Add("}");
-        return true;
     }
 
-    private static bool TryRenderEvent(RenderContext context, IEventSymbol eventSymbol, ImmutableArray<string>.Builder builder)
+    public static void RenderEvent(RenderContext context, IEventSymbol eventSymbol, ImmutableArray<string>.Builder builder)
     {
         var symbolName = context.MemberContext.SymbolName;
         var isAbstract = context.MemberContext.IsAbstract;
@@ -229,7 +198,6 @@ internal static class DelegationRenderingHelpers
         }
 
         builder.Add("}");
-        return true;
     }
 
     private static void AddIndexerGetter(RenderContext context, ImmutableArray<string>.Builder builder, string propertyType, string parameters, string arguments)

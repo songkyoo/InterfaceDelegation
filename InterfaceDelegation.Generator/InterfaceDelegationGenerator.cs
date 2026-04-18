@@ -18,10 +18,6 @@ namespace Macaron.InterfaceDelegation;
 public class InterfaceDelegationGenerator : IIncrementalGenerator
 {
     #region Constants
-    private const string Implicit = nameof(ImplementationMode.Implicit);
-    private const string Explicit = nameof(ImplementationMode.Explicit);
-    private const string Lift = nameof(Lift);
-
     private const string Space = "    ";
     #endregion
 
@@ -35,85 +31,32 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         ) = context;
 
         var isLiftMode = context is GenerationLiftContext;
-        var isMemberImplementingInterface =
-            !isLiftMode && IsImplementingInterface(
-                GenerationContextFactory.GetDeclaredSymbolType(declaredSymbol),
-                delegationTypeSymbol
-            );
+        var isMemberImplementingInterface = DelegationMemberHelpers.IsMemberImplementingInterface(context);
         var isField = declaredSymbol is IFieldSymbol;
 
         var typeSymbol = declaredSymbol.ContainingType;
-
-        var typeName = typeSymbol.Name;
         var declaredSymbolName = declaredSymbol.Name;
         var interfaceTypeString = isLiftMode ? "" : delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat);
 
         var getImplementedMember = BuildMemberComparer(typeSymbol, delegationTypeSymbol);
         var builder = ImmutableArray.CreateBuilder<string>();
-        var includeBaseTypes = !isLiftMode || ((GenerationLiftContext)context).IncludeBaseTypes;
 
-        foreach (var symbol in includeBaseTypes
-            ? GetMembersWithBaseTypes(delegationTypeSymbol)
-            : GetMembers(delegationTypeSymbol)
-        )
+        foreach (var symbol in DelegationMemberHelpers.GetTargetMembers(context))
         {
-            var symbolName = symbol.Name;
-
-            if (isLiftMode)
-            {
-                if (symbol.DeclaredAccessibility is not Public and not Internal)
-                {
-                    continue;
-                }
-
-                var liftContext = (GenerationLiftContext)context;
-                var filter = liftContext.Filter;
-                var remove = liftContext.Remove;
-
-                if (!filter.IsEmpty && !filter.Contains(symbolName))
-                {
-                    continue;
-                }
-
-                if (remove.Contains(symbolName))
-                {
-                    continue;
-                }
-            }
-
-            symbolName = (context as GenerationLiftContext)?.Rename.TryGetValue(symbolName, out var newName) is true
-                ? newName
-                : symbolName;
-
-            var checkReturnType = !isLiftMode;
-            var (
-                hasImplementedMember,
-                isExplicit,
-                isAbstract
-            ) = GetImplementationContext(
-                mode:
-                    isLiftMode ? Lift :
-                    symbolName == typeName ? Explicit :
-                    ((GenerationInterfaceContext)context).Mode == ImplementationMode.Explicit ? Explicit : Implicit,
-                containingTypeSymbol: typeSymbol,
-                implicitMemberSymbol: getImplementedMember(symbol, symbolName, /* isExplicit */false, checkReturnType),
-                explicitMemberSymbol: getImplementedMember(symbol, symbolName, /* isExplicit */true, checkReturnType)
+            var memberContext = DelegationMemberHelpers.CreateMemberGenerationContext(
+                context,
+                symbol,
+                getImplementedMember
             );
-
-            if (hasImplementedMember)
+            if (memberContext == null)
             {
                 continue;
             }
 
-            var accessibility =
-                isExplicit ? "" :
-                isLiftMode ? $"{symbol.DeclaredAccessibility.ToString().ToLower()} " : "public ";
+            var (memberSymbol, symbolName, isExplicit, isAbstract, accessibility, @interface) = memberContext.Value;
             var @override = isAbstract ? "override " : "";
-            var @interface = isExplicit
-                ? $"{delegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
-                : "";
 
-            if (symbol is IMethodSymbol { MethodKind: Ordinary } methodSymbol)
+            if (memberSymbol is IMethodSymbol { MethodKind: Ordinary } methodSymbol)
             {
                 if (isLiftMode)
                 {
@@ -176,7 +119,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add($"{Space}=> {declaredSymbolName}.{methodName}{genericParameters}({arguments});");
                 }
             }
-            else if (symbol is IPropertySymbol propertySymbol)
+            else if (memberSymbol is IPropertySymbol propertySymbol)
             {
                 var isInitOnly = propertySymbol.SetMethod?.IsInitOnly is true;
 
@@ -327,7 +270,7 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
                     builder.Add($"}}");
                 }
             }
-            else if (symbol is IEventSymbol eventSymbol)
+            else if (memberSymbol is IEventSymbol eventSymbol)
             {
                 if (builder.Count > 0)
                 {
@@ -381,124 +324,6 @@ public class InterfaceDelegationGenerator : IIncrementalGenerator
         }
 
         return builder.ToImmutable();
-
-        #region Local Functions
-        static bool IsImplementingInterface(ITypeSymbol typeSymbol, ITypeSymbol interfaceSymbol)
-        {
-            return typeSymbol.Interfaces.Contains(interfaceSymbol, SymbolEqualityComparer.Default);
-        }
-
-        static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
-        {
-            if (typeSymbol.TypeKind == TypeKind.Interface)
-            {
-                foreach (var memberSymbol in new[] { typeSymbol }.Concat(typeSymbol.AllInterfaces)
-                    .SelectMany(symbol => symbol.GetMembers())
-                    .Where(symbol => !symbol.IsStatic)
-                )
-                {
-                    yield return memberSymbol;
-                }
-            }
-            else
-            {
-                var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-
-                var baseTypeSymbol = typeSymbol;
-                while (baseTypeSymbol != null && !IsBaseType(baseTypeSymbol))
-                {
-                    foreach (var memberSymbol in baseTypeSymbol.GetMembers())
-                    {
-                        if (memberSymbol.IsStatic)
-                        {
-                            continue;
-                        }
-
-                        switch (memberSymbol)
-                        {
-                            case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
-                                overriddenSymbols.Add(overriddenMethod);
-                                break;
-                            case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
-                                overriddenSymbols.Add(overriddenProperty);
-                                break;
-                            case IEventSymbol { OverriddenEvent: { } overriddenEvent }:
-                                overriddenSymbols.Add(overriddenEvent);
-                                break;
-                        }
-
-                        if (overriddenSymbols.Contains(memberSymbol))
-                        {
-                            continue;
-                        }
-
-                        yield return memberSymbol;
-                    }
-
-                    baseTypeSymbol = baseTypeSymbol.BaseType;
-                }
-            }
-
-            #region Local Functions
-            static bool IsBaseType(ITypeSymbol symbol)
-            {
-                return symbol.ToDisplayString(FullyQualifiedFormat) is "object" or "global::System.ValueType";
-            }
-            #endregion
-        }
-
-        static IEnumerable<ISymbol> GetMembers(ITypeSymbol typeSymbol)
-        {
-            foreach (var memberSymbol in typeSymbol.GetMembers())
-            {
-                if (memberSymbol.IsStatic)
-                {
-                    continue;
-                }
-
-                yield return memberSymbol;
-            }
-        }
-
-        static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
-            string mode,
-            ITypeSymbol? containingTypeSymbol,
-            ISymbol? implicitMemberSymbol,
-            ISymbol? explicitMemberSymbol
-        )
-        {
-            var defaultValue = (
-                hasImplementedMember: false,
-                isExplicit: false,
-                isAbstract: false
-            );
-
-            var result = mode switch
-            {
-                Implicit => (implicitMemberSymbol, explicitMemberSymbol) switch
-                {
-                    (null, null) => defaultValue,
-                    ({ IsAbstract: true }, null) => defaultValue with { isAbstract = true },
-                    _ => defaultValue with { hasImplementedMember = true },
-                },
-                Explicit => explicitMemberSymbol == null
-                    ? defaultValue with { isExplicit = true }
-                    : defaultValue with { hasImplementedMember = true },
-                Lift => implicitMemberSymbol switch
-                {
-                    null => defaultValue,
-                    { IsAbstract: true } => defaultValue with { isAbstract = true },
-                    _ => defaultValue with { hasImplementedMember = true },
-                },
-                _ => throw new InvalidOperationException($"Invalid mode: {mode}"),
-            };
-
-            var comparer = SymbolEqualityComparer.Default;
-            return result.isAbstract && comparer.Equals(implicitMemberSymbol!.ContainingType, containingTypeSymbol)
-                ? defaultValue with { hasImplementedMember = true }
-                : result;
-        }
-        #endregion
     }
 
     private static void AddSource(

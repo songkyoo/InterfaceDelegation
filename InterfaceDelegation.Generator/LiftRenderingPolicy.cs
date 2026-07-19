@@ -8,7 +8,7 @@ namespace Macaron.InterfaceDelegation;
 internal static class LiftRenderingPolicy
 {
     public static void RenderMember(
-        DelegationRenderingCore.RenderContext context,
+        DelegationRenderingContext context,
         ImmutableArray<string>.Builder builder
     )
     {
@@ -36,7 +36,7 @@ internal static class LiftRenderingPolicy
     }
 
     private static void RenderMethod(
-        DelegationRenderingCore.RenderContext context,
+        DelegationRenderingContext context,
         IMethodSymbol methodSymbol,
         ImmutableArray<string>.Builder builder
     )
@@ -46,11 +46,11 @@ internal static class LiftRenderingPolicy
             return;
         }
 
-        DelegationRenderingCore.RenderMethod(context, methodSymbol, builder);
+        DelegationMethodRenderer.Render(context, methodSymbol, builder);
     }
 
     private static void RenderProperty(
-        DelegationRenderingCore.RenderContext context,
+        DelegationRenderingContext context,
         IPropertySymbol propertySymbol,
         ImmutableArray<string>.Builder builder
     )
@@ -60,15 +60,15 @@ internal static class LiftRenderingPolicy
             return;
         }
 
-        DelegationRenderingCore.RenderProperty(context, propertySymbol, builder);
+        DelegationPropertyRenderer.Render(context, propertySymbol, builder);
     }
 
     private static void RenderEvent(
-        DelegationRenderingCore.RenderContext context,
+        DelegationRenderingContext context,
         IEventSymbol eventSymbol,
         ImmutableArray<string>.Builder builder
     )
     {
-        DelegationRenderingCore.RenderEvent(context, eventSymbol, builder);
+        DelegationEventRenderer.Render(context, eventSymbol, builder);
     }
 }

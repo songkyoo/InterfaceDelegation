@@ -17,6 +17,7 @@ internal static class DelegationGenerationPipeline
     private static ImmutableArray<string> GenerateExpose(ExposeGenerationContext context)
     {
         var executionContext = DelegationGenerationContext.Create(context);
+        var dispatchRenderer = DelegationDispatchRenderer.Create(executionContext.Dispatch);
         var builder = ImmutableArray.CreateBuilder<string>();
 
         foreach (var symbol in ExposeGenerationPolicy.GetTargetMembers(context))
@@ -26,13 +27,17 @@ internal static class DelegationGenerationPipeline
                 symbol,
                 executionContext.ImplementationIndex
             );
+
             if (memberContext == null)
             {
                 continue;
             }
 
             ExposeRenderingPolicy.RenderMember(
-                context: DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
+                context: new DelegationRenderingContext(
+                    MemberContext: memberContext.Value,
+                    DispatchRenderer: dispatchRenderer
+                ),
                 builder
             );
         }
@@ -43,6 +48,7 @@ internal static class DelegationGenerationPipeline
     private static ImmutableArray<string> GenerateLift(LiftGenerationContext context)
     {
         var executionContext = DelegationGenerationContext.Create(context);
+        var dispatchRenderer = DelegationDispatchRenderer.Create(executionContext.Dispatch);
         var builder = ImmutableArray.CreateBuilder<string>();
 
         foreach (var symbol in LiftGenerationPolicy.GetTargetMembers(context))
@@ -59,7 +65,10 @@ internal static class DelegationGenerationPipeline
             }
 
             LiftRenderingPolicy.RenderMember(
-                context: DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
+                context: new DelegationRenderingContext(
+                    MemberContext: memberContext.Value,
+                    DispatchRenderer: dispatchRenderer
+                ),
                 builder
             );
         }

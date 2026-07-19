@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <Version Condition="'$(IsPackable)' != 'false'">1.0.9</Version>
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
 </Project>

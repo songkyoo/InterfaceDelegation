@@ -1,10 +1,18 @@
 using Microsoft.CodeAnalysis;
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
+using static Microsoft.CodeAnalysis.TypeKind;
 
 namespace Macaron.InterfaceDelegation;
 
 internal static class DelegationMemberUtilities
 {
+    internal enum MemberGenerationMode
+    {
+        ImplicitInterfaceImplementation,
+        ExplicitInterfaceImplementation,
+        Lift,
+    }
+
     internal readonly record struct MemberGenerationContext(
         ISymbol Symbol,
         string SymbolName,
@@ -15,7 +23,7 @@ internal static class DelegationMemberUtilities
 
     public static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
     {
-        if (typeSymbol.TypeKind == TypeKind.Interface)
+        if (typeSymbol.TypeKind == Interface)
         {
             foreach (var memberSymbol in new[] { typeSymbol }.Concat(typeSymbol.AllInterfaces)
                 .SelectMany(symbol => symbol.GetMembers())
@@ -43,14 +51,23 @@ internal static class DelegationMemberUtilities
                 switch (memberSymbol)
                 {
                     case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
+                    {
                         overriddenSymbols.Add(overriddenMethod);
+
                         break;
+                    }
                     case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
+                    {
                         overriddenSymbols.Add(overriddenProperty);
+
                         break;
+                    }
                     case IEventSymbol { OverriddenEvent: { } overriddenEvent }:
+                    {
                         overriddenSymbols.Add(overriddenEvent);
+
                         break;
+                    }
                 }
 
                 if (overriddenSymbols.Contains(memberSymbol))
@@ -77,7 +94,7 @@ internal static class DelegationMemberUtilities
     }
 
     public static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
-        string mode,
+        MemberGenerationMode mode,
         ITypeSymbol? containingTypeSymbol,
         ISymbol? implicitMemberSymbol,
         ISymbol? explicitMemberSymbol
@@ -91,22 +108,25 @@ internal static class DelegationMemberUtilities
 
         var result = mode switch
         {
-            nameof(ImplementationMode.Implicit) => (implicitMemberSymbol, explicitMemberSymbol) switch
+            MemberGenerationMode.ImplicitInterfaceImplementation => (
+                implicitMemberSymbol,
+                explicitMemberSymbol
+            ) switch
             {
                 (null, null) => defaultValue,
                 ({ IsAbstract: true }, null) => defaultValue with { isAbstract = true },
                 _ => defaultValue with { hasImplementedMember = true },
             },
-            nameof(ImplementationMode.Explicit) => explicitMemberSymbol == null
+            MemberGenerationMode.ExplicitInterfaceImplementation => explicitMemberSymbol == null
                 ? defaultValue with { isExplicit = true }
                 : defaultValue with { hasImplementedMember = true },
-            "Lift" => implicitMemberSymbol switch
+            MemberGenerationMode.Lift => implicitMemberSymbol switch
             {
                 null => defaultValue,
                 { IsAbstract: true } => defaultValue with { isAbstract = true },
                 _ => defaultValue with { hasImplementedMember = true },
             },
-            _ => throw new InvalidOperationException($"Invalid mode: {mode}"),
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
         };
 
         var comparer = SymbolEqualityComparer.Default;

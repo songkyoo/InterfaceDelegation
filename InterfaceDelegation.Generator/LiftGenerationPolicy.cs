@@ -1,5 +1,7 @@
 using Microsoft.CodeAnalysis;
 
+using MemberGenerationMode = Macaron.InterfaceDelegation .DelegationMemberUtilities.MemberGenerationMode;
+
 namespace Macaron.InterfaceDelegation;
 
 internal static class LiftGenerationPolicy
@@ -38,7 +40,7 @@ internal static class LiftGenerationPolicy
             isExplicit,
             isAbstract
         ) = DelegationMemberUtilities.GetImplementationContext(
-            mode: "Lift",
+            mode: MemberGenerationMode.Lift,
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,

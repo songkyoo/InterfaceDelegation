@@ -2,6 +2,8 @@ using Microsoft.CodeAnalysis;
 
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
+using MemberGenerationMode = Macaron.InterfaceDelegation .DelegationMemberUtilities.MemberGenerationMode;
+
 namespace Macaron.InterfaceDelegation;
 
 internal static class ExposeGenerationPolicy
@@ -35,14 +37,14 @@ internal static class ExposeGenerationPolicy
         var typeSymbol = context.DeclaredSymbol.ContainingType;
         var symbolName = symbol.Name;
         var mode = symbolName == typeSymbol.Name || context.Mode == ImplementationMode.Explicit
-            ? nameof(ImplementationMode.Explicit)
-            : nameof(ImplementationMode.Implicit);
+            ? MemberGenerationMode.ExplicitInterfaceImplementation
+            : MemberGenerationMode.ImplicitInterfaceImplementation;
         var (
             hasImplementedMember,
             isExplicit,
             isAbstract
         ) = DelegationMemberUtilities.GetImplementationContext(
-            mode: mode,
+            mode,
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,

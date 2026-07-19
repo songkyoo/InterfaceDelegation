@@ -6,9 +6,11 @@ internal static class LiftGenerationPolicy
 {
     public static IEnumerable<ISymbol> GetTargetMembers(GenerationLiftContext context)
     {
-        var symbols = context.IncludeBaseTypes
-            ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
+        var symbols = !context.PrecomputedTargetMembers.IsDefault
+            ? context.PrecomputedTargetMembers
+            : context.IncludeBaseTypes
+                ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
+                : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
 
         foreach (var symbol in symbols)
         {
@@ -50,7 +52,6 @@ internal static class LiftGenerationPolicy
         return new DelegationMemberUtilities.MemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsExplicit: isExplicit,
             IsAbstract: isAbstract,
             Accessibility: isExplicit ? "" : $"{symbol.DeclaredAccessibility.ToString().ToLower()} ",
             InterfacePrefix: ""

@@ -1,15 +1,11 @@
 using Microsoft.CodeAnalysis;
 
-using static Macaron.InterfaceDelegation.MemberComparisonHelpers;
+using static Macaron.InterfaceDelegation.MemberComparisonHelper;
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
 internal readonly record struct DelegationGenerationContext(
-    GenerationContext GenerationContext,
-    ISymbol DeclaredSymbol,
-    INamedTypeSymbol TypeSymbol,
-    bool IsLiftMode,
     bool IsMemberImplementingInterface,
     bool IsField,
     string DeclaredSymbolName,
@@ -25,15 +21,13 @@ internal readonly record struct DelegationGenerationContext(
         var isLiftMode = generationContext is GenerationLiftContext;
         var isMemberImplementingInterface = generationContext switch
         {
-            GenerationInterfaceContext interfaceContext => ExposeGenerationPolicy.IsMemberImplementingInterface(interfaceContext),
+            GenerationInterfaceContext interfaceContext => ExposeGenerationPolicy.IsMemberImplementingInterface(
+                interfaceContext
+            ),
             _ => false,
         };
 
         return new DelegationGenerationContext(
-            GenerationContext: generationContext,
-            DeclaredSymbol: declaredSymbol,
-            TypeSymbol: typeSymbol,
-            IsLiftMode: isLiftMode,
             IsMemberImplementingInterface: isMemberImplementingInterface,
             IsField: declaredSymbol is IFieldSymbol,
             DeclaredSymbolName: declaredSymbol.Name,

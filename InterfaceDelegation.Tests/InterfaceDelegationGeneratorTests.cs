@@ -7,25 +7,58 @@ namespace Macaron.InterfaceDelegation.Tests;
 [TestFixture]
 public class InterfaceDelegationGeneratorTests
 {
-    private static void AssertGeneratedCode(
-        string sourceCode,
-        string expected,
-        out ImmutableArray<Diagnostic> diagnostics
-    )
-    {
-        (diagnostics, var generatedCode) = CompileAndGetResults(sourceCode);
-
-        Assert.That(generatedCode.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
-    }
+    private sealed record GeneratorTestResult(
+        ImmutableArray<Diagnostic> Diagnostics,
+        ImmutableArray<GeneratedSourceResult> GeneratedSources,
+        Compilation OutputCompilation
+    );
 
     private static void AssertGeneratedCode(string sourceCode, string expected)
     {
-        var (_, generatedCode) = CompileAndGetResults(sourceCode);
+        var result = RunGenerator(sourceCode);
 
-        Assert.That(generatedCode.ReplaceLineEndings(), Is.EqualTo(expected.ReplaceLineEndings()));
+        AssertSuccessfulGeneration(result);
+        Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+        Assert.That(
+            result.GeneratedSources[0].SourceText.ToString().ReplaceLineEndings(),
+            Is.EqualTo(expected.ReplaceLineEndings())
+        );
+    }
+
+    private static void AssertGeneratedCodes(string sourceCode, params string[] expected)
+    {
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.That(result.GeneratedSources, Has.Length.EqualTo(expected.Length));
+        Assert.That(
+            result.GeneratedSources.Select(static source => source.SourceText.ToString().ReplaceLineEndings()),
+            Is.EqualTo(expected.Select(static source => source.ReplaceLineEndings()))
+        );
+    }
+
+    private static void AssertSuccessfulGeneration(GeneratorTestResult result)
+    {
+        var errors = result
+            .OutputCompilation
+            .GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+
+        Assert.That(errors, Is.Empty, string.Join(Environment.NewLine, errors.Select(static diagnostic => diagnostic.ToString())));
     }
 
     private static (ImmutableArray<Diagnostic> diagnostics, string generatedCode) CompileAndGetResults(string sourceCode)
+    {
+        var result = RunGenerator(sourceCode);
+        var generatedCode = result.GeneratedSources.Length > 0
+            ? result.GeneratedSources[0].SourceText.ToString()
+            : "";
+
+        return (result.Diagnostics, generatedCode);
+    }
+
+    private static GeneratorTestResult RunGenerator(string sourceCode)
     {
         var attributeAssembly = typeof(ExposeAttribute).Assembly;
         var references = AppDomain
@@ -49,17 +82,19 @@ public class InterfaceDelegationGeneratorTests
         );
 
         var generator = new InterfaceDelegationGenerator();
-        var driver = CSharpGeneratorDriver.Create(generator);
-
-        var result = driver.RunGenerators(compilation).GetRunResult().Results.Single();
-        var generatedSources = result.GeneratedSources;
-        var generatedCode = generatedSources.Length > 0 ? generatedSources[0].SourceText.ToString() : "";
-
-        var allDiagnostics = compilation.GetDiagnostics()
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+        driver = driver.RunGeneratorsAndUpdateCompilation(
+            compilation,
+            out var outputCompilation,
+            out _
+        );
+        var result = driver.GetRunResult().Results.Single();
+        var allDiagnostics = outputCompilation
+            .GetDiagnostics()
             .Concat(result.Diagnostics)
             .ToImmutableArray();
 
-        return (allDiagnostics, generatedCode);
+        return new GeneratorTestResult(allDiagnostics, result.GeneratedSources, outputCompilation);
     }
 
     [Test]
@@ -226,7 +261,7 @@ public class InterfaceDelegationGeneratorTests
                 public string GreetC(string name) => $"Hello, {name}!";
             }
 
-            public partial class TestClass : IGreeter
+            public partial class TestClass : IGreeterC
             {
                 [Expose(typeof(IGreeterC))]
                 private IGreeterC Impl { get; } = new RealGreeter();
@@ -326,6 +361,8 @@ public class InterfaceDelegationGeneratorTests
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
+
+            using System;
 
             public interface IGreeterA
             {
@@ -432,7 +469,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void GeneratesDelegation_ForMultipleInterfaces_OnSeparateMembers()
     {
-        AssertGeneratedCode(
+        AssertGeneratedCodes(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -464,27 +501,40 @@ public class InterfaceDelegationGeneratorTests
             }
             """,
             expected:
-            """
-            // <auto-generated />
-            #nullable enable
+            [
+                """
+                // <auto-generated />
+                #nullable enable
 
-            namespace Macaron.InterfaceDelegation.Tests
-            {
-                partial class TestClass
+                namespace Macaron.InterfaceDelegation.Tests
                 {
-                    #region global::Macaron.InterfaceDelegation.Tests.IGreeterA
-                    public string GreetA(string name)
-                        => ImplA.GreetA(name);
-                    #endregion
-
-                    #region global::Macaron.InterfaceDelegation.Tests.IGreeterB
-                    public string GreetB(string name)
-                        => ImplB.GreetB(name);
-                    #endregion
+                    partial class TestClass
+                    {
+                        #region global::Macaron.InterfaceDelegation.Tests.IGreeterA
+                        public string GreetA(string name)
+                            => ImplA.GreetA(name);
+                        #endregion
+                    }
                 }
-            }
 
-            """
+                """,
+                """
+                // <auto-generated />
+                #nullable enable
+
+                namespace Macaron.InterfaceDelegation.Tests
+                {
+                    partial class TestClass
+                    {
+                        #region global::Macaron.InterfaceDelegation.Tests.IGreeterB
+                        public string GreetB(string name)
+                            => ImplB.GreetB(name);
+                        #endregion
+                    }
+                }
+
+                """,
+            ]
         );
     }
 
@@ -564,6 +614,8 @@ public class InterfaceDelegationGeneratorTests
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
+
+            using System.Collections.Generic;
 
             public interface IPropertyExample
             {
@@ -1185,7 +1237,7 @@ public class InterfaceDelegationGeneratorTests
                 [Expose(typeof(IFoo), ImplementationMode.Explicit)]
                 private readonly IFoo _impl = new FooImpl();
 
-                public MethodA() { }
+                public void MethodA() { }
             }
             """,
             expected:
@@ -1233,7 +1285,7 @@ public class InterfaceDelegationGeneratorTests
                 public void DoSomething() { }
             }
 
-            public partial class TestAbstractDelegation : IAbstractExample
+            public abstract partial class TestAbstractDelegation : IAbstractExample
             {
                 [Expose(typeof(IAbstractExample))]
                 private readonly IAbstractExample _impl = new AbstractExampleImpl();
@@ -1344,7 +1396,7 @@ public class InterfaceDelegationGeneratorTests
 
                 public void DoSomething() { }
 
-                int Value { get => 42; }
+                public int Value { get => 42; }
             }
 
             public abstract class TestAbstractDelegationBase
@@ -1402,7 +1454,7 @@ public class InterfaceDelegationGeneratorTests
                 public int GetAnswer<T>() where T : class => 42;
             }
 
-            public partial class TestGenericDelegation : TestGenericDelegationBase
+            public partial class TestGenericDelegation : IGenericExample
             {
                 [Expose(typeof(IGenericExample))]
                 private readonly IGenericExample _impl = new GenericExampleImpl();
@@ -1450,10 +1502,10 @@ public class InterfaceDelegationGeneratorTests
                 public virtual void BaseVirtualMethod() { }
             }
 
-            public class Foo : Base
+            public abstract class Foo : Base
             {
                 // 정적 멤버는 무시됨
-                public static Foo Of() => new Foo();
+                public static Foo Of() => null!;
 
                 public static int StaticValue => 42;
 
@@ -1461,7 +1513,7 @@ public class InterfaceDelegationGeneratorTests
                 public int this[int index]
                 {
                     get => 0;
-                    set => { }
+                    set { }
                 }
 
                 public List<object?> Value => null!;
@@ -1478,7 +1530,7 @@ public class InterfaceDelegationGeneratorTests
                 public override void BaseVirtualMethod() { }
 
                 // public인 아닌 멤버는 무시됨
-                protected int GetAnswer() => 42;
+                protected int HiddenAnswer() => 42;
 
                 // abstract 멤버도 리프팅 대상
                 public abstract void AbstractMethod();
@@ -1487,7 +1539,7 @@ public class InterfaceDelegationGeneratorTests
             public partial class Bar
             {
                 [Lift(includeBaseTypes: true)]
-                private readonly Foo _impl = new();
+                private readonly Foo _impl = null!;
             }
             """,
             expected:
@@ -1560,7 +1612,7 @@ public class InterfaceDelegationGeneratorTests
                 public void Bar(int x, int y = 42, DateTime z = new DateTime()) { }
             }
 
-            public partial class Bar
+            public partial class Lifted
             {
                 [Lift]
                 private Foo _impl { get; } = new();
@@ -1573,7 +1625,7 @@ public class InterfaceDelegationGeneratorTests
 
             namespace Macaron.InterfaceDelegation.Tests
             {
-                partial class Bar
+                partial class Lifted
                 {
                     #region global::Macaron.InterfaceDelegation.Tests.Foo
                     public void Bar(int x, int y = 42, global::System.DateTime z = default)
@@ -1589,7 +1641,7 @@ public class InterfaceDelegationGeneratorTests
     [Test]
     public void LiftAttributeOptions_WorksAsExpected()
     {
-        AssertGeneratedCode(
+        AssertGeneratedCodes(
             sourceCode:
             """
             namespace Macaron.InterfaceDelegation.Tests;
@@ -1626,44 +1678,57 @@ public class InterfaceDelegationGeneratorTests
                 private readonly LiftTarget _impl = new();
 
                 [Lift(
-                    includeBaseTypes: false
+                    includeBaseTypes: false,
                     filter: new[] { "GetB" }
                 )]
                 private readonly LiftTarget _impl2 = new();
             }
             """,
             expected:
-            """
-            // <auto-generated />
-            #nullable enable
+            [
+                """
+                // <auto-generated />
+                #nullable enable
 
-            namespace Macaron.InterfaceDelegation.Tests
-            {
-                partial class Lifted
+                namespace Macaron.InterfaceDelegation.Tests
                 {
-                    #region global::Macaron.InterfaceDelegation.Tests.LiftTarget
-                    public int Answer
+                    partial class Lifted
                     {
-                        get => _impl.Value;
+                        #region global::Macaron.InterfaceDelegation.Tests.LiftTarget
+                        public int Answer
+                        {
+                            get => _impl.Value;
+                        }
+
+                        public void Renamed(int x)
+                            => _impl.GetA(x);
+
+                        public int ParentValue
+                        {
+                            get => _impl.BaseValue;
+                        }
+                        #endregion
                     }
-
-                    public void Renamed(int x)
-                        => _impl.GetA(x);
-
-                    public int ParentValue
-                    {
-                        get => _impl.BaseValue;
-                    }
-                    #endregion
-
-                    #region global::Macaron.InterfaceDelegation.Tests.LiftTarget
-                    public void GetB()
-                        => _impl2.GetB();
-                    #endregion
                 }
-            }
 
-            """
+                """,
+                """
+                // <auto-generated />
+                #nullable enable
+
+                namespace Macaron.InterfaceDelegation.Tests
+                {
+                    partial class Lifted
+                    {
+                        #region global::Macaron.InterfaceDelegation.Tests.LiftTarget
+                        public void GetB()
+                            => _impl2.GetB();
+                        #endregion
+                    }
+                }
+
+                """,
+            ]
         );
     }
 
@@ -2229,5 +2294,370 @@ public class InterfaceDelegationGeneratorTests
 
             """
         );
+    }
+
+    [Test]
+    public void UsesNominalContractFastPath_ForDefaultInterfaceImplementation()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run() { }
+            }
+
+            public sealed class Foo : IFoo
+            {
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                private readonly Foo _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0005"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Contain("where __T : global::Macaron.InterfaceDelegation.Tests.IFoo"));
+        });
+    }
+
+    [Test]
+    public void UsesInterfaceDispatch_WhenBaseTypeImplementsInterfaceExplicitly()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run();
+            }
+
+            public class FooBase : IFoo
+            {
+                void IFoo.Run() { }
+            }
+
+            public sealed class Foo : FooBase
+            {
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                private readonly Foo _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0005"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Contain("__Run(in _impl)"));
+        });
+    }
+
+    [Test]
+    public void UsesIndexedContractValidation_ForDuckTypedTarget()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run(int value);
+
+                int Value { get; }
+
+                int Map(int value);
+
+                string Map(string value);
+            }
+
+            public sealed class DuckFoo
+            {
+                public void Run(int value) { }
+
+                public int Value => 42;
+
+                public int Map(int value) => value;
+
+                public string Map(string value) => value;
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                private readonly DuckFoo _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0005"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Contain("=> _impl.Run(value);"));
+        });
+    }
+
+    [Test]
+    public void EmptyLiftOptions_PreserveDefaultGenerationWithoutDiagnostics()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public sealed class LiftTarget
+            {
+                public void Run() { }
+            }
+
+            public partial class DefaultLift
+            {
+                [Lift]
+                private readonly LiftTarget _impl = new();
+            }
+
+            public partial class ExplicitNullLift
+            {
+                [Lift(false, null, null, null)]
+                private readonly LiftTarget _impl = new();
+            }
+
+            public partial class EmptyFilterLift
+            {
+                [Lift(filter: new string[] { })]
+                private readonly LiftTarget _impl = new();
+            }
+
+            public partial class EmptyRemoveLift
+            {
+                [Lift(remove: new string[] { })]
+                private readonly LiftTarget _impl = new();
+            }
+
+            public partial class EmptyRenameLift
+            {
+                [Lift(rename: new string[] { })]
+                private readonly LiftTarget _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0004"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(5));
+            Assert.That(
+                result.GeneratedSources.Select(static source => source.SourceText.ToString()),
+                Has.All.Contains("public void Run()")
+            );
+        });
+    }
+
+    [Test]
+    public void WhitespaceLiftFilter_RemainsAnActiveFilter()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public sealed class LiftTarget
+            {
+                public void Run() { }
+            }
+
+            public partial class Wrapper
+            {
+                [Lift(filter: new[] { " " })]
+                private readonly LiftTarget _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0004"));
+            Assert.That(result.GeneratedSources, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void ExposeAndLiftOnSameTarget_ProduceDistinctSources()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run();
+            }
+
+            public sealed class Foo : IFoo
+            {
+                public int Value => 42;
+
+                public void Run() { }
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                [Lift(filter: new[] { "Value" })]
+                private readonly Foo _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(2));
+            Assert.That(
+                result.GeneratedSources.Select(static source => source.HintName),
+                Is.Unique
+            );
+            Assert.That(
+                result.GeneratedSources.Count(static source => source.SourceText.ToString().Contains("public void Run()", StringComparison.Ordinal)),
+                Is.EqualTo(1)
+            );
+            Assert.That(
+                result.GeneratedSources.Count(static source => source.SourceText.ToString().Contains("public int Value", StringComparison.Ordinal)),
+                Is.EqualTo(1)
+            );
+        });
+    }
+
+    [Test]
+    public void UnsupportedIndexerAttribute_DoesNotSuppressSupportedExposeTarget()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run();
+            }
+
+            public sealed class Foo : IFoo
+            {
+                public void Run() { }
+            }
+
+            public partial class Wrapper
+            {
+                private readonly IFoo _indexerValue = new Foo();
+
+                [Expose(typeof(IFoo))]
+                public IFoo this[int index] => _indexerValue;
+
+                [Expose(typeof(IFoo))]
+                private readonly IFoo _impl = new Foo();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0003"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Contain("=> _impl.Run();"));
+        });
+    }
+
+    [Test]
+    public void IgnoresPrivateDefaultInterfaceHelpers()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run();
+
+                private void Helper() { }
+            }
+
+            public sealed class Foo : IFoo
+            {
+                public void Run() { }
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                private readonly Foo _impl = new();
+            }
+            """;
+
+        var result = RunGenerator(sourceCode);
+
+        AssertSuccessfulGeneration(result);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Diagnostics, Has.None.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0005"));
+            Assert.That(result.GeneratedSources, Has.Length.EqualTo(1));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Contain("__Run(in _impl)"));
+            Assert.That(result.GeneratedSources[0].SourceText.ToString(), Does.Not.Contain("Helper"));
+        });
+    }
+
+    [Test]
+    public void RejectsInaccessibleDuckTypedMembers()
+    {
+        const string sourceCode =
+            """
+            namespace Macaron.InterfaceDelegation.Tests;
+
+            public interface IFoo
+            {
+                void Run();
+            }
+
+            public sealed class DuckFoo
+            {
+                private void Run() { }
+            }
+
+            public partial class Wrapper : IFoo
+            {
+                [Expose(typeof(IFoo))]
+                private readonly DuckFoo _impl = new();
+            }
+            """;
+
+        var (diagnostics, generatedCode) = CompileAndGetResults(sourceCode);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(diagnostics, Has.Some.Matches<Diagnostic>(static diagnostic => diagnostic.Id == "MAID0005"));
+            Assert.That(generatedCode, Is.Empty);
+        });
     }
 }

@@ -8,7 +8,7 @@ using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
 
 namespace Macaron.InterfaceDelegation;
 
-public class MethodSignatureGenerationHelpers
+public static class MethodSignatureGenerationHelper
 {
     public static string GetParameterString(IParameterSymbol parameterSymbol)
     {

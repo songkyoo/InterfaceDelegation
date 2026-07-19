@@ -6,42 +6,39 @@ namespace Macaron.InterfaceDelegation;
 
 internal static class GenerationContextFactory
 {
-    private const string ExposeAttributeString = "Macaron.InterfaceDelegation.ExposeAttribute";
-    private const string LiftAttributeString = "Macaron.InterfaceDelegation.LiftAttribute";
-
-    public static ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)> Create(
-        GeneratorSyntaxContext context
+    public static ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)> CreateLiftContexts(
+        GeneratorAttributeSyntaxContext context,
+        CancellationToken cancellationToken
     )
     {
-        var declaredSymbol = GetDeclaredSymbol(context);
-        if (declaredSymbol?.ContainingType.TypeKind is not TypeKind.Class and not TypeKind.Struct)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsSupportedTargetSymbol(context.TargetSymbol))
         {
             return ImmutableArray<(GenerationContext?, ImmutableArray<Diagnostic>)>.Empty;
         }
 
-        var builder = ImmutableArray.CreateBuilder<(GenerationContext?, ImmutableArray<Diagnostic>)>();
-        foreach (var attributeData in declaredSymbol.GetAttributes())
+        var builder = ImmutableArray.CreateBuilder<(GenerationContext?, ImmutableArray<Diagnostic>)>(context.Attributes.Length);
+
+        foreach (var attributeData in context.Attributes.OrderBy(GetAttributeSpanStart))
         {
-            var attributeString = attributeData.AttributeClass?.ToDisplayString();
-            if (attributeString == ExposeAttributeString)
-            {
-                builder.Add(CreateExposeContext(attributeData, declaredSymbol));
-            }
-            else if (attributeString == LiftAttributeString)
-            {
-                builder.Add(CreateLiftContext(attributeData, declaredSymbol));
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+
+            builder.Add(CreateLiftContext(attributeData, context.TargetSymbol));
         }
 
         return builder.ToImmutable();
     }
 
-    private static (GenerationContext?, ImmutableArray<Diagnostic>) CreateExposeContext(
+    internal static (GenerationContext?, ImmutableArray<Diagnostic>) CreateExposeContext(
         AttributeData attributeData,
-        ISymbol declaredSymbol
+        ISymbol declaredSymbol,
+        Compilation compilation,
+        CancellationToken cancellationToken = default
     )
     {
         var constructorArguments = attributeData.ConstructorArguments;
+
         if (declaredSymbol is IPropertySymbol { Type.IsValueType: true })
         {
             return (
@@ -54,10 +51,7 @@ internal static class GenerationContextFactory
             );
         }
 
-        var constructorArgument = constructorArguments[0].Value;
-        var interfaceTypeSymbol = constructorArgument == null
-            ? GetDeclaredSymbolType(declaredSymbol) as INamedTypeSymbol
-            : constructorArgument as INamedTypeSymbol;
+        var interfaceTypeSymbol = GetExposeInterfaceType(attributeData, declaredSymbol);
 
         if (interfaceTypeSymbol == null)
         {
@@ -86,8 +80,12 @@ internal static class GenerationContextFactory
         var exposeContractDiagnostics = CreateExposeContractDiagnostics(
             attributeData,
             GetDeclaredSymbolType(declaredSymbol),
-            interfaceTypeSymbol
+            interfaceTypeSymbol,
+            declaredSymbol.ContainingType,
+            compilation,
+            cancellationToken
         );
+
         if (!exposeContractDiagnostics.IsEmpty)
         {
             return (null, exposeContractDiagnostics);
@@ -120,6 +118,10 @@ internal static class GenerationContextFactory
             .Select(static pair => pair!.Value)
             .ToImmutableDictionary();
         var delegationTypeSymbol = GetDeclaredSymbolType(declaredSymbol);
+        var hasMemberOptions = !filter.IsEmpty || !remove.IsEmpty || !rename.IsEmpty;
+        var precomputedTargetMembers = hasMemberOptions
+            ? GetLiftConfigurableMembers(delegationTypeSymbol, includeBaseTypes).ToImmutableArray()
+            : default;
 
         return (
             new GenerationLiftContext(
@@ -129,20 +131,52 @@ internal static class GenerationContextFactory
                 IncludeBaseTypes: includeBaseTypes,
                 Filter: filter,
                 Remove: remove,
-                Rename: rename
+                Rename: rename,
+                PrecomputedTargetMembers: precomputedTargetMembers
             ),
-            CreateLiftOptionDiagnostics(attributeData, delegationTypeSymbol, includeBaseTypes)
+            hasMemberOptions
+                ? CreateLiftOptionDiagnostics(attributeData, delegationTypeSymbol, precomputedTargetMembers)
+                : ImmutableArray<Diagnostic>.Empty
         );
     }
 
-    private static ISymbol? GetDeclaredSymbol(GeneratorSyntaxContext context)
+    private static INamedTypeSymbol? GetExposeInterfaceType(AttributeData attributeData, ISymbol declaredSymbol)
     {
-        return context.Node switch
+        var constructorArgument = attributeData.ConstructorArguments[0].Value;
+
+        return constructorArgument == null
+            ? GetDeclaredSymbolType(declaredSymbol) as INamedTypeSymbol
+            : constructorArgument as INamedTypeSymbol;
+    }
+
+    internal static bool IsSupportedTargetSymbol(ISymbol symbol)
+    {
+        if (symbol.ContainingType?.TypeKind is not TypeKind.Class and not TypeKind.Struct)
         {
-            FieldDeclarationSyntax { Declaration.Variables: [var decl] } => context.SemanticModel.GetDeclaredSymbol(decl),
-            PropertyDeclarationSyntax decl => context.SemanticModel.GetDeclaredSymbol(decl),
-            ParameterSyntax decl => context.SemanticModel.GetDeclaredSymbol(decl),
-            _ => null,
+            return false;
+        }
+
+        return symbol switch
+        {
+            IFieldSymbol fieldSymbol => fieldSymbol.DeclaringSyntaxReferences.Any(static syntaxReference =>
+                syntaxReference.GetSyntax() is VariableDeclaratorSyntax
+                {
+                    Parent: VariableDeclarationSyntax { Variables.Count: 1 },
+                }
+            ),
+            IPropertySymbol propertySymbol => propertySymbol.DeclaringSyntaxReferences.Any(static syntaxReference =>
+                syntaxReference.GetSyntax() is PropertyDeclarationSyntax
+            ),
+            IParameterSymbol parameterSymbol => parameterSymbol.DeclaringSyntaxReferences.Any(static syntaxReference =>
+                syntaxReference.GetSyntax() is ParameterSyntax
+                {
+                    Parent: ParameterListSyntax
+                    {
+                        Parent: RecordDeclarationSyntax or ClassDeclarationSyntax or StructDeclarationSyntax,
+                    },
+                }
+            ),
+            _ => false,
         };
     }
 
@@ -153,6 +187,11 @@ internal static class GenerationContextFactory
         IParameterSymbol parameterSymbol => parameterSymbol.Type,
         _ => throw new InvalidOperationException($"Unexpected symbol type: {symbol.GetType().Name}"),
     };
+
+    private static int GetAttributeSpanStart(AttributeData attributeData)
+    {
+        return attributeData.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue;
+    }
 
     private static ImplementationMode GetImplementationMode(ImmutableArray<TypedConstant> constructorArguments)
     {
@@ -173,6 +212,7 @@ internal static class GenerationContextFactory
     private static KeyValuePair<string, string>? ToRenamePair(string value)
     {
         var values = value.Split(':').Select(static part => part.Trim()).ToArray();
+
         return values.Length != 2 || values.Any(static part => part.Length < 1)
             ? null
             : new KeyValuePair<string, string>(values[0], values[1]);
@@ -181,10 +221,10 @@ internal static class GenerationContextFactory
     private static ImmutableArray<Diagnostic> CreateLiftOptionDiagnostics(
         AttributeData attributeData,
         ITypeSymbol delegationTypeSymbol,
-        bool includeBaseTypes
+        ImmutableArray<ISymbol> targetMembers
     )
     {
-        var availableMemberNames = GetLiftConfigurableMembers(delegationTypeSymbol, includeBaseTypes)
+        var availableMemberNames = targetMembers
             .Select(static symbol => symbol.Name)
             .ToImmutableHashSet();
         var builder = ImmutableArray.CreateBuilder<Diagnostic>();
@@ -218,23 +258,40 @@ internal static class GenerationContextFactory
     private static ImmutableArray<Diagnostic> CreateExposeContractDiagnostics(
         AttributeData attributeData,
         ITypeSymbol targetTypeSymbol,
-        INamedTypeSymbol interfaceTypeSymbol
+        INamedTypeSymbol interfaceTypeSymbol,
+        INamedTypeSymbol containingTypeSymbol,
+        Compilation compilation,
+        CancellationToken cancellationToken
     )
     {
+        if (MemberComparisonHelper.ImplementsInterface(targetTypeSymbol, interfaceTypeSymbol))
+        {
+            return ImmutableArray<Diagnostic>.Empty;
+        }
+
         var builder = ImmutableArray.CreateBuilder<Diagnostic>();
         var location = GetTypeArgumentLocation(attributeData) ??
             attributeData.ApplicationSyntaxReference?.GetSyntax().GetLocation();
+        var hasCompatibleImplementation = MemberComparisonHelper.BuildCompatibleImplementationChecker(
+            typeSymbol: targetTypeSymbol,
+            interfaceSymbol: interfaceTypeSymbol,
+            isAccessible: memberSymbol => compilation.IsSymbolAccessibleWithin(
+                symbol: memberSymbol,
+                within: containingTypeSymbol,
+                throughType: targetTypeSymbol
+            )
+        );
 
         foreach (var interfaceMember in DelegationMemberUtilities.GetMembersWithBaseTypes(interfaceTypeSymbol))
         {
-            if (interfaceMember is not IMethodSymbol { MethodKind: Microsoft.CodeAnalysis.MethodKind.Ordinary } &&
-                interfaceMember is not IPropertySymbol &&
-                interfaceMember is not IEventSymbol)
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!ExposeGenerationPolicy.IsExposableInterfaceMember(interfaceMember))
             {
                 continue;
             }
 
-            if (!MemberComparisonHelpers.HasCompatibleImplementation(targetTypeSymbol, interfaceTypeSymbol, interfaceMember))
+            if (!hasCompatibleImplementation(interfaceMember))
             {
                 builder.Add(Diagnostic.Create(
                     descriptor: GenerationDiagnostics.ExposeMemberNotImplementedRule,
@@ -247,7 +304,10 @@ internal static class GenerationContextFactory
         return builder.ToImmutable();
     }
 
-    private static IEnumerable<ISymbol> GetLiftConfigurableMembers(ITypeSymbol delegationTypeSymbol, bool includeBaseTypes)
+    private static IEnumerable<ISymbol> GetLiftConfigurableMembers(
+        ITypeSymbol delegationTypeSymbol,
+        bool includeBaseTypes
+    )
     {
         var members = includeBaseTypes
             ? DelegationMemberUtilities.GetMembersWithBaseTypes(delegationTypeSymbol)
@@ -310,6 +370,7 @@ internal static class GenerationContextFactory
         }
 
         var parameterIndex = -1;
+
         for (var i = 0; i < constructor.Parameters.Length; i++)
         {
             if (constructor.Parameters[i].Name == parameterName)
@@ -325,22 +386,30 @@ internal static class GenerationContextFactory
         }
 
         var argumentSyntax = GetAttributeArgumentSyntax(attributeData, parameterName);
-        return GetStringValuesWithLocations(attributeData.ConstructorArguments[parameterIndex], argumentSyntax?.Expression);
+
+        return GetStringValuesWithLocations(
+            attributeData.ConstructorArguments[parameterIndex],
+            argumentSyntax?.Expression
+        );
     }
 
-    private static AttributeArgumentSyntax? GetAttributeArgumentSyntax(AttributeData attributeData, string parameterName)
+    private static AttributeArgumentSyntax? GetAttributeArgumentSyntax(
+        AttributeData attributeData,
+        string parameterName
+    )
     {
         var syntax = attributeData.ApplicationSyntaxReference?.GetSyntax() as AttributeSyntax;
         var arguments = syntax?.ArgumentList?.Arguments;
         var constructor = attributeData.AttributeConstructor;
+
         if (arguments == null || constructor == null)
         {
             return null;
         }
 
         var parameters = constructor.Parameters;
-
         var positionalIndex = 0;
+
         foreach (var argument in arguments.Value)
         {
             if (argument.NameColon is { Name.Identifier.ValueText: var nameColon })
@@ -380,6 +449,7 @@ internal static class GenerationContextFactory
         }
 
         var values = constant.Values.Select(static value => (string?)value.Value ?? "").ToImmutableArray();
+
         if (values.IsEmpty)
         {
             return ImmutableArray<(string Value, Location? Location)>.Empty;
@@ -395,11 +465,13 @@ internal static class GenerationContextFactory
         };
 
         var builder = ImmutableArray.CreateBuilder<(string Value, Location? Location)>(values.Length);
+
         for (var i = 0; i < values.Length; i++)
         {
             var location = expressions != default && i < expressions.Count
                 ? expressions[i].GetLocation()
                 : expression?.GetLocation();
+
             builder.Add((values[i], location));
         }
 
@@ -409,6 +481,7 @@ internal static class GenerationContextFactory
     private static Location? GetTypeArgumentLocation(AttributeData attributeData)
     {
         var syntax = attributeData.ApplicationSyntaxReference?.GetSyntax();
+
         return syntax is AttributeSyntax { ArgumentList: { Arguments.Count: > 0 } argList }
             ? argList.Arguments[0].GetLocation()
             : null;

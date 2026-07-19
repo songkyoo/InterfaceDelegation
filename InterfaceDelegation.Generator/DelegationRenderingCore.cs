@@ -1,8 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
-using static Macaron.InterfaceDelegation.MethodSignatureGenerationHelpers;
-using static Microsoft.CodeAnalysis.MethodKind;
+using static Macaron.InterfaceDelegation.MethodSignatureGenerationHelper;
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
 
@@ -13,9 +12,7 @@ internal static class DelegationRenderingCore
     private const string Space = "    ";
 
     internal readonly record struct RenderContext(
-        DelegationGenerationContext ExecutionContext,
         DelegationMemberUtilities.MemberGenerationContext MemberContext,
-        bool IsLiftMode,
         bool IsMemberImplementingInterface,
         bool IsField,
         string DeclaredSymbolName,
@@ -28,9 +25,7 @@ internal static class DelegationRenderingCore
         )
         {
             return new RenderContext(
-                ExecutionContext: executionContext,
                 MemberContext: memberContext,
-                IsLiftMode: executionContext.IsLiftMode,
                 IsMemberImplementingInterface: executionContext.IsMemberImplementingInterface,
                 IsField: executionContext.IsField,
                 DeclaredSymbolName: executionContext.DeclaredSymbolName,
@@ -39,63 +34,71 @@ internal static class DelegationRenderingCore
         }
     }
 
-    public static void RenderMethod(RenderContext context, IMethodSymbol methodSymbol, ImmutableArray<string>.Builder builder)
+    public static void RenderMethod(
+        RenderContext context,
+        IMethodSymbol methodSymbol,
+        ImmutableArray<string>.Builder builder
+    )
+{
+    var symbolName = context.MemberContext.SymbolName;
+    var isAbstract = context.MemberContext.IsAbstract;
+    var accessibility = context.MemberContext.Accessibility;
+    var @interface = context.MemberContext.InterfacePrefix;
+    var @override = isAbstract ? "override " : "";
+    var genericParameterNames = methodSymbol.TypeParameters.Length > 0
+        ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
+        : "";
+    var genericParameterConstraints = methodSymbol
+        .TypeParameters
+        .Select(GetTypeParameterConstraintClause)
+        .Where(static constraint => constraint.Length > 0)
+        .ToImmutableArray();
+    var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+        IncludeNullableReferenceTypeModifier | UseSpecialTypes
+    ));
+    var methodName = methodSymbol.Name;
+    var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
+    var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
+    var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
+
+    AddSpacer(builder);
+    builder.Add($"{accessibility}{@override}{returnType} {@interface}{symbolName}{genericParameters}({parameters})");
+
+    foreach (var constraint in genericParameterConstraints)
     {
-        var symbolName = context.MemberContext.SymbolName;
-        var isAbstract = context.MemberContext.IsAbstract;
-        var accessibility = context.MemberContext.Accessibility;
-        var @interface = context.MemberContext.InterfacePrefix;
-        var @override = isAbstract ? "override " : "";
-        var genericParameterNames = methodSymbol.TypeParameters.Length > 0
-            ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
-            : "";
-        var genericParameterConstraints = methodSymbol
-            .TypeParameters
-            .Select(GetTypeParameterConstraintClause)
-            .Where(static constraint => constraint.Length > 0)
-            .ToImmutableArray();
-        var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
-            IncludeNullableReferenceTypeModifier | UseSpecialTypes
-        ));
-        var methodName = methodSymbol.Name;
-        var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
-        var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
-        var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
+        builder.Add($"{Space}{constraint}");
+    }
 
-        AddSpacer(builder);
-        builder.Add($"{accessibility}{@override}{returnType} {@interface}{symbolName}{genericParameters}({parameters})");
+    if (context.IsMemberImplementingInterface)
+    {
+        builder.Add("{");
 
-        foreach (var constraint in genericParameterConstraints)
+        if (context.IsField)
         {
-            builder.Add($"{Space}{constraint}");
-        }
-
-        if (context.IsMemberImplementingInterface)
-        {
-            builder.Add("{");
-
-            if (context.IsField)
-            {
-                builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(in {context.DeclaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
-                builder.Add("");
-                builder.Add($"{Space}#region Local Functions");
-                builder.Add($"{Space}static {returnType} __{methodName}<__T>(in __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {context.InterfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
-                builder.Add($"{Space}#endregion");
-            }
-            else
-            {
-                builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({context.InterfaceTypeString}){context.DeclaredSymbolName}).{methodName}({arguments});");
-            }
-
-            builder.Add("}");
+            builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(in {context.DeclaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
+            builder.Add("");
+            builder.Add($"{Space}#region Local Functions");
+            builder.Add($"{Space}static {returnType} __{methodName}<__T>(in __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {context.InterfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
+            builder.Add($"{Space}#endregion");
         }
         else
         {
-            builder.Add($"{Space}=> {context.DeclaredSymbolName}.{methodName}{genericParameters}({arguments});");
+            builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({context.InterfaceTypeString}){context.DeclaredSymbolName}).{methodName}({arguments});");
         }
-    }
 
-    public static void RenderProperty(RenderContext context, IPropertySymbol propertySymbol, ImmutableArray<string>.Builder builder)
+        builder.Add("}");
+    }
+    else
+    {
+        builder.Add($"{Space}=> {context.DeclaredSymbolName}.{methodName}{genericParameters}({arguments});");
+    }
+}
+
+    public static void RenderProperty(
+        RenderContext context,
+        IPropertySymbol propertySymbol,
+        ImmutableArray<string>.Builder builder
+    )
     {
         var isInitOnly = propertySymbol.SetMethod?.IsInitOnly is true;
         var symbolName = context.MemberContext.SymbolName;
@@ -148,7 +151,11 @@ internal static class DelegationRenderingCore
         builder.Add("}");
     }
 
-    public static void RenderEvent(RenderContext context, IEventSymbol eventSymbol, ImmutableArray<string>.Builder builder)
+    public static void RenderEvent(
+        RenderContext context,
+        IEventSymbol eventSymbol,
+        ImmutableArray<string>.Builder builder
+    )
     {
         var symbolName = context.MemberContext.SymbolName;
         var isAbstract = context.MemberContext.IsAbstract;
@@ -200,7 +207,13 @@ internal static class DelegationRenderingCore
         builder.Add("}");
     }
 
-    private static void AddIndexerGetter(RenderContext context, ImmutableArray<string>.Builder builder, string propertyType, string parameters, string arguments)
+    private static void AddIndexerGetter(
+        RenderContext context,
+        ImmutableArray<string>.Builder builder,
+        string propertyType,
+        string parameters,
+        string arguments
+    )
     {
         if (context.IsMemberImplementingInterface)
         {
@@ -226,7 +239,13 @@ internal static class DelegationRenderingCore
         }
     }
 
-    private static void AddIndexerSetter(RenderContext context, ImmutableArray<string>.Builder builder, string propertyType, string parameters, string arguments)
+    private static void AddIndexerSetter(
+        RenderContext context,
+        ImmutableArray<string>.Builder builder,
+        string propertyType,
+        string parameters,
+        string arguments
+    )
     {
         if (context.IsMemberImplementingInterface)
         {
@@ -252,7 +271,12 @@ internal static class DelegationRenderingCore
         }
     }
 
-    private static void AddPropertyGetter(RenderContext context, ImmutableArray<string>.Builder builder, string propertyType, string propertyName)
+    private static void AddPropertyGetter(
+        RenderContext context,
+        ImmutableArray<string>.Builder builder,
+        string propertyType,
+        string propertyName
+    )
     {
         if (context.IsMemberImplementingInterface)
         {
@@ -278,7 +302,12 @@ internal static class DelegationRenderingCore
         }
     }
 
-    private static void AddPropertySetter(RenderContext context, ImmutableArray<string>.Builder builder, string propertyType, string propertyName)
+    private static void AddPropertySetter(
+        RenderContext context,
+        ImmutableArray<string>.Builder builder,
+        string propertyType,
+        string propertyName
+    )
     {
         if (context.IsMemberImplementingInterface)
         {

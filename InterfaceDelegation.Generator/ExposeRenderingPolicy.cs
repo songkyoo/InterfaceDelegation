@@ -7,31 +7,44 @@ namespace Macaron.InterfaceDelegation;
 
 internal static class ExposeRenderingPolicy
 {
-    public static bool TryRenderMember(
+    public static void RenderMember(
         DelegationRenderingCore.RenderContext context,
         ImmutableArray<string>.Builder builder
     )
     {
-        return context.MemberContext.Symbol switch
+        switch(context.MemberContext.Symbol )
         {
-            IMethodSymbol { MethodKind: Ordinary } methodSymbol => TryRenderMethod(context, methodSymbol, builder),
-            IPropertySymbol propertySymbol => TryRenderProperty(context, propertySymbol, builder),
-            IEventSymbol eventSymbol => TryRenderEvent(context, eventSymbol, builder),
-            _ => false,
+            case IMethodSymbol { MethodKind: Ordinary } methodSymbol:
+            {
+                RenderMethod(context, methodSymbol, builder);
+
+                break;
+            }
+            case IPropertySymbol propertySymbol:
+            {
+                RenderProperty(context, propertySymbol, builder);
+
+                break;
+            }
+            case IEventSymbol eventSymbol:
+            {
+                RenderEvent(context, eventSymbol, builder);
+
+                break;
+            }
         };
     }
 
-    private static bool TryRenderMethod(
+    private static void RenderMethod(
         DelegationRenderingCore.RenderContext context,
         IMethodSymbol methodSymbol,
         ImmutableArray<string>.Builder builder
     )
     {
         DelegationRenderingCore.RenderMethod(context, methodSymbol, builder);
-        return true;
     }
 
-    private static bool TryRenderProperty(
+    private static void RenderProperty(
         DelegationRenderingCore.RenderContext context,
         IPropertySymbol propertySymbol,
         ImmutableArray<string>.Builder builder
@@ -39,20 +52,18 @@ internal static class ExposeRenderingPolicy
     {
         if (propertySymbol.SetMethod?.IsInitOnly is true)
         {
-            return false;
+            return;
         }
 
         DelegationRenderingCore.RenderProperty(context, propertySymbol, builder);
-        return true;
     }
 
-    private static bool TryRenderEvent(
+    private static void RenderEvent(
         DelegationRenderingCore.RenderContext context,
         IEventSymbol eventSymbol,
         ImmutableArray<string>.Builder builder
     )
     {
         DelegationRenderingCore.RenderEvent(context, eventSymbol, builder);
-        return true;
     }
 }

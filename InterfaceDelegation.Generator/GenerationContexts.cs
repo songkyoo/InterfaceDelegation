@@ -23,5 +23,6 @@ internal sealed record GenerationLiftContext(
     bool IncludeBaseTypes,
     ImmutableHashSet<string> Filter,
     ImmutableHashSet<string> Remove,
-    ImmutableDictionary<string, string> Rename
+    ImmutableDictionary<string, string> Rename,
+    ImmutableArray<ISymbol> PrecomputedTargetMembers
 ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);

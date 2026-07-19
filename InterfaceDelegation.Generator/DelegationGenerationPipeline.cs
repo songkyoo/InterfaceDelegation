@@ -31,7 +31,7 @@ internal static class DelegationGenerationPipeline
                 continue;
             }
 
-            ExposeRenderingPolicy.TryRenderMember(
+            ExposeRenderingPolicy.RenderMember(
                 DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
@@ -57,7 +57,7 @@ internal static class DelegationGenerationPipeline
                 continue;
             }
 
-            LiftRenderingPolicy.TryRenderMember(
+            LiftRenderingPolicy.RenderMember(
                 DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );

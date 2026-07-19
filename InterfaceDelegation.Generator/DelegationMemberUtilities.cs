@@ -8,7 +8,6 @@ internal static class DelegationMemberUtilities
     internal readonly record struct MemberGenerationContext(
         ISymbol Symbol,
         string SymbolName,
-        bool IsExplicit,
         bool IsAbstract,
         string Accessibility,
         string InterfacePrefix
@@ -31,6 +30,7 @@ internal static class DelegationMemberUtilities
 
         var overriddenSymbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         var baseTypeSymbol = typeSymbol;
+
         while (baseTypeSymbol != null && !IsBaseType(baseTypeSymbol))
         {
             foreach (var memberSymbol in baseTypeSymbol.GetMembers())
@@ -110,6 +110,7 @@ internal static class DelegationMemberUtilities
         };
 
         var comparer = SymbolEqualityComparer.Default;
+
         return result.isAbstract && comparer.Equals(implicitMemberSymbol!.ContainingType, containingTypeSymbol)
             ? defaultValue with { hasImplementedMember = true }
             : result;

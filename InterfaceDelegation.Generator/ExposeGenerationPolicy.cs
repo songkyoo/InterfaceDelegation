@@ -8,18 +8,38 @@ internal static class ExposeGenerationPolicy
 {
     public static bool IsMemberImplementingInterface(GenerationInterfaceContext context)
     {
-        return GenerationContextFactory
-            .GetDeclaredSymbolType(context.DeclaredSymbol)
-            .Interfaces
-            .Contains(context.DelegationTypeSymbol, SymbolEqualityComparer.Default);
+        var targetTypeSymbol = GenerationContextFactory.GetDeclaredSymbolType(context.DeclaredSymbol);
+
+        return
+            !SymbolEqualityComparer.Default.Equals(targetTypeSymbol, context.DelegationTypeSymbol)
+            && MemberComparisonHelper.ImplementsInterface(targetTypeSymbol, context.DelegationTypeSymbol);
     }
 
     public static IEnumerable<ISymbol> GetTargetMembers(GenerationInterfaceContext context)
     {
         foreach (var symbol in DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
         {
-            yield return symbol;
+            if (IsExposableInterfaceMember(symbol))
+            {
+                yield return symbol;
+            }
         }
+    }
+
+    public static bool IsExposableInterfaceMember(ISymbol symbol)
+    {
+        if (symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public)
+        {
+            return false;
+        }
+
+        return symbol switch
+        {
+            IMethodSymbol { MethodKind: MethodKind.Ordinary } => true,
+            IPropertySymbol => true,
+            IEventSymbol => true,
+            _ => false,
+        };
     }
 
     public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
@@ -52,7 +72,6 @@ internal static class ExposeGenerationPolicy
         return new DelegationMemberUtilities.MemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsExplicit: isExplicit,
             IsAbstract: isAbstract,
             Accessibility: isExplicit ? "" : "public ",
             InterfacePrefix: isExplicit

@@ -4,13 +4,13 @@ using static Macaron.InterfaceDelegation.DelegationMemberGenerationDecision;
 using static Macaron.InterfaceDelegation.DelegationMemberGenerationMode;
 using static Macaron.InterfaceDelegation.ImplementationMode;
 using static Macaron.InterfaceDelegation.MethodReturnTypeComparison;
-using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
+using static Microsoft.CodeAnalysis.Accessibility;
 
 namespace Macaron.InterfaceDelegation;
 
 internal static class ExposeGenerationPolicy
 {
-    public static bool IsMemberImplementingInterface(ExposeGenerationContext context)
+    public static bool RequiresInterfaceDispatch(ExposeGenerationContext context)
     {
         var targetTypeSymbol = DelegationTargetSymbol.GetDeclaredType(context.DeclaredSymbol);
 
@@ -61,16 +61,20 @@ internal static class ExposeGenerationPolicy
             return null;
         }
 
-        var isExplicit = decision == GenerateExplicitInterfaceImplementation;
+        DelegationMemberDeclaration declaration = decision switch
+        {
+            Generate => new ImplicitDelegationMemberDeclaration(Accessibility: Public),
+            GenerateExplicitInterfaceImplementation => new ExplicitInterfaceDelegationMemberDeclaration(
+                context.DelegationTypeSymbol
+            ),
+            OverrideAbstractMember => new OverrideDelegationMemberDeclaration(Accessibility: Public),
+            _ => throw new ArgumentOutOfRangeException(nameof(decision), decision, null),
+        };
 
         return new DelegationMemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsAbstract: decision == OverrideAbstractMember,
-            Accessibility: isExplicit ? "" : "public ",
-            InterfacePrefix: isExplicit
-                ? $"{context.DelegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."
-                : ""
+            Declaration: declaration
         );
     }
 }

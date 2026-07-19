@@ -58,12 +58,17 @@ internal static class LiftGenerationPolicy
             return null;
         }
 
+        DelegationMemberDeclaration declaration = decision switch
+        {
+            Generate => new ImplicitDelegationMemberDeclaration(symbol.DeclaredAccessibility),
+            OverrideAbstractMember => new OverrideDelegationMemberDeclaration(symbol.DeclaredAccessibility),
+            _ => throw new ArgumentOutOfRangeException(nameof(decision), decision, null),
+        };
+
         return new DelegationMemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsAbstract: decision == OverrideAbstractMember,
-            Accessibility: $"{symbol.DeclaredAccessibility.ToString().ToLower()} ",
-            InterfacePrefix: ""
+            Declaration: declaration
         );
     }
 

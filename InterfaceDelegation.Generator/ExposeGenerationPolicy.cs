@@ -29,7 +29,7 @@ internal static class ExposeGenerationPolicy
     public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
         ExposeGenerationContext context,
         ISymbol symbol,
-        Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
+        MemberImplementationIndex implementationIndex
     )
     {
         var typeSymbol = context.DeclaredSymbol.ContainingType;
@@ -44,8 +44,16 @@ internal static class ExposeGenerationPolicy
         ) = DelegationMemberUtilities.GetImplementationContext(
             mode: mode,
             containingTypeSymbol: typeSymbol,
-            implicitMemberSymbol: getImplementedMember(symbol, symbolName, false, true),
-            explicitMemberSymbol: getImplementedMember(symbol, symbolName, true, true)
+            implicitMemberSymbol: implementationIndex.FindImplicit(
+                symbol,
+                symbolName,
+                checkReturnType: true
+            ),
+            explicitMemberSymbol: implementationIndex.FindExplicit(
+                symbol,
+                symbolName,
+                checkReturnType: true
+            )
         );
 
         if (hasImplementedMember)

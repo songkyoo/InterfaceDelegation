@@ -26,7 +26,7 @@ internal static class LiftGenerationPolicy
     public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
         LiftGenerationContext context,
         ISymbol symbol,
-        Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
+        MemberImplementationIndex implementationIndex
     )
     {
         var typeSymbol = context.DeclaredSymbol.ContainingType;
@@ -40,8 +40,16 @@ internal static class LiftGenerationPolicy
         ) = DelegationMemberUtilities.GetImplementationContext(
             mode: "Lift",
             containingTypeSymbol: typeSymbol,
-            implicitMemberSymbol: getImplementedMember(symbol, symbolName, false, false),
-            explicitMemberSymbol: getImplementedMember(symbol, symbolName, true, false)
+            implicitMemberSymbol: implementationIndex.FindImplicit(
+                symbol,
+                symbolName,
+                checkReturnType: false
+            ),
+            explicitMemberSymbol: implementationIndex.FindExplicit(
+                symbol,
+                symbolName,
+                checkReturnType: false
+            )
         );
 
         if (hasImplementedMember)

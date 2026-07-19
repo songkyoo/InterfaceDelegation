@@ -24,7 +24,7 @@ internal static class DelegationGenerationPipeline
             var memberContext = ExposeGenerationPolicy.CreateMemberGenerationContext(
                 context,
                 symbol,
-                executionContext.GetImplementedMember
+                executionContext.ImplementationIndex
             );
             if (memberContext == null)
             {
@@ -32,7 +32,7 @@ internal static class DelegationGenerationPipeline
             }
 
             ExposeRenderingPolicy.RenderMember(
-                DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
+                context: DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
         }
@@ -50,15 +50,16 @@ internal static class DelegationGenerationPipeline
             var memberContext = LiftGenerationPolicy.CreateMemberGenerationContext(
                 context,
                 symbol,
-                executionContext.GetImplementedMember
+                executionContext.ImplementationIndex
             );
+
             if (memberContext == null)
             {
                 continue;
             }
 
             LiftRenderingPolicy.RenderMember(
-                DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
+                context: DelegationRenderingCore.RenderContext.Create(executionContext, memberContext.Value),
                 builder
             );
         }

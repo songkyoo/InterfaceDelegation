@@ -8,13 +8,13 @@ internal static class DelegationGenerationPipeline
     {
         return context switch
         {
-            GenerationInterfaceContext interfaceContext => GenerateExpose(interfaceContext),
-            GenerationLiftContext liftContext => GenerateLift(liftContext),
+            ExposeGenerationContext exposeContext => GenerateExpose(exposeContext),
+            LiftGenerationContext liftContext => GenerateLift(liftContext),
             _ => ImmutableArray<string>.Empty,
         };
     }
 
-    private static ImmutableArray<string> GenerateExpose(GenerationInterfaceContext context)
+    private static ImmutableArray<string> GenerateExpose(ExposeGenerationContext context)
     {
         var executionContext = DelegationGenerationContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();
@@ -40,7 +40,7 @@ internal static class DelegationGenerationPipeline
         return builder.ToImmutable();
     }
 
-    private static ImmutableArray<string> GenerateLift(GenerationLiftContext context)
+    private static ImmutableArray<string> GenerateLift(LiftGenerationContext context)
     {
         var executionContext = DelegationGenerationContext.Create(context);
         var builder = ImmutableArray.CreateBuilder<string>();

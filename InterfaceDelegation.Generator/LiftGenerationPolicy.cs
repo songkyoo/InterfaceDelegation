@@ -4,13 +4,13 @@ namespace Macaron.InterfaceDelegation;
 
 internal static class LiftGenerationPolicy
 {
-    public static IEnumerable<ISymbol> GetTargetMembers(GenerationLiftContext context)
+    public static IEnumerable<ISymbol> GetTargetMembers(LiftGenerationContext context)
     {
         var symbols = !context.PrecomputedTargetMembers.IsDefault
             ? context.PrecomputedTargetMembers
             : context.IncludeBaseTypes
-                ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-                : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
+            ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
+            : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
 
         foreach (var symbol in symbols)
         {
@@ -24,7 +24,7 @@ internal static class LiftGenerationPolicy
     }
 
     public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
-        GenerationLiftContext context,
+        LiftGenerationContext context,
         ISymbol symbol,
         Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
     )
@@ -58,7 +58,7 @@ internal static class LiftGenerationPolicy
         );
     }
 
-    private static bool ShouldIncludeSymbol(GenerationLiftContext context, ISymbol symbol)
+    private static bool ShouldIncludeSymbol(LiftGenerationContext context, ISymbol symbol)
     {
         if (symbol.DeclaredAccessibility is not Accessibility.Public and not Accessibility.Internal)
         {

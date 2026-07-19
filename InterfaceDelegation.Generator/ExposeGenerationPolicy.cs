@@ -6,44 +6,28 @@ namespace Macaron.InterfaceDelegation;
 
 internal static class ExposeGenerationPolicy
 {
-    public static bool IsMemberImplementingInterface(GenerationInterfaceContext context)
+    public static bool IsMemberImplementingInterface(ExposeGenerationContext context)
     {
-        var targetTypeSymbol = GenerationContextFactory.GetDeclaredSymbolType(context.DeclaredSymbol);
+        var targetTypeSymbol = DelegationTargetSymbol.GetDeclaredType(context.DeclaredSymbol);
 
         return
             !SymbolEqualityComparer.Default.Equals(targetTypeSymbol, context.DelegationTypeSymbol)
             && MemberComparisonHelper.ImplementsInterface(targetTypeSymbol, context.DelegationTypeSymbol);
     }
 
-    public static IEnumerable<ISymbol> GetTargetMembers(GenerationInterfaceContext context)
+    public static IEnumerable<ISymbol> GetTargetMembers(ExposeGenerationContext context)
     {
         foreach (var symbol in DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
         {
-            if (IsExposableInterfaceMember(symbol))
+            if (ExposeMemberRules.IsSupportedInterfaceMember(symbol))
             {
                 yield return symbol;
             }
         }
     }
 
-    public static bool IsExposableInterfaceMember(ISymbol symbol)
-    {
-        if (symbol.IsStatic || symbol.DeclaredAccessibility != Accessibility.Public)
-        {
-            return false;
-        }
-
-        return symbol switch
-        {
-            IMethodSymbol { MethodKind: MethodKind.Ordinary } => true,
-            IPropertySymbol => true,
-            IEventSymbol => true,
-            _ => false,
-        };
-    }
-
     public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
-        GenerationInterfaceContext context,
+        ExposeGenerationContext context,
         ISymbol symbol,
         Func<ISymbol, string, bool, bool, ISymbol?> getImplementedMember
     )

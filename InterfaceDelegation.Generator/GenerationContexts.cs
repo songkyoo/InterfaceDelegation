@@ -9,14 +9,14 @@ internal abstract record GenerationContext(
     ITypeSymbol DelegationTypeSymbol
 );
 
-internal sealed record GenerationInterfaceContext(
+internal sealed record ExposeGenerationContext(
     AttributeData Attribute,
     ISymbol DeclaredSymbol,
     ITypeSymbol DelegationTypeSymbol,
     ImplementationMode Mode
 ) : GenerationContext(Attribute, DeclaredSymbol, DelegationTypeSymbol);
 
-internal sealed record GenerationLiftContext(
+internal sealed record LiftGenerationContext(
     AttributeData Attribute,
     ISymbol DeclaredSymbol,
     ITypeSymbol DelegationTypeSymbol,

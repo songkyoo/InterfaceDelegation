@@ -18,11 +18,11 @@ internal readonly record struct DelegationGenerationContext(
         var declaredSymbol = generationContext.DeclaredSymbol;
         var typeSymbol = declaredSymbol.ContainingType;
         var delegationTypeSymbol = generationContext.DelegationTypeSymbol;
-        var isLiftMode = generationContext is GenerationLiftContext;
+        var isLiftMode = generationContext is LiftGenerationContext;
         var isMemberImplementingInterface = generationContext switch
         {
-            GenerationInterfaceContext interfaceContext => ExposeGenerationPolicy.IsMemberImplementingInterface(
-                interfaceContext
+            ExposeGenerationContext exposeContext => ExposeGenerationPolicy.IsMemberImplementingInterface(
+                exposeContext
             ),
             _ => false,
         };

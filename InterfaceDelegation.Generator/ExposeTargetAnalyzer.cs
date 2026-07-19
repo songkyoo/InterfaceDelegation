@@ -121,7 +121,7 @@ internal static class ExposeTargetAnalyzer
 
             diagnostics.AddRange(entry.Diagnostics);
 
-            if (entry.Context is not GenerationInterfaceContext interfaceContext)
+            if (entry.Context is not ExposeGenerationContext exposeContext)
             {
                 continue;
             }
@@ -130,14 +130,14 @@ internal static class ExposeTargetAnalyzer
             {
                 diagnostics.Add(Diagnostic.Create(
                     descriptor: GenerationDiagnostics.DuplicateDelegationTargetRule,
-                    location: interfaceContext.Attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation(),
-                    messageArgs: [interfaceContext.DelegationTypeSymbol]
+                    location: exposeContext.Attribute.ApplicationSyntaxReference?.GetSyntax(cancellationToken).GetLocation(),
+                    messageArgs: [exposeContext.DelegationTypeSymbol]
                 ));
 
                 continue;
             }
 
-            TargetGenerationComposer.AppendGeneration(lines, interfaceContext);
+            TargetGenerationComposer.AppendGeneration(lines, exposeContext);
         }
 
         return TargetGenerationComposer.CreateOutput(
@@ -162,14 +162,14 @@ internal static class ExposeTargetAnalyzer
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (generationContext, diagnostics) = GenerationContextFactory.CreateExposeContext(
+            var (generationContext, diagnostics) = ExposeContextFactory.Create(
                 application.Attribute,
                 application.DeclaredSymbol,
                 compilation,
                 cancellationToken
             );
-            var isCanonical = generationContext is not GenerationInterfaceContext interfaceContext ||
-                delegatedInterfaces.Add(interfaceContext.DelegationTypeSymbol);
+            var isCanonical = generationContext is not ExposeGenerationContext exposeContext ||
+                delegatedInterfaces.Add(exposeContext.DelegationTypeSymbol);
             var syntaxReference = application.Attribute.ApplicationSyntaxReference!;
 
             entries.Add(
@@ -238,7 +238,7 @@ internal static class ExposeTargetAnalyzer
 
         foreach (var memberSymbol in typeSymbol.GetMembers())
         {
-            if (GenerationContextFactory.IsSupportedTargetSymbol(memberSymbol) && seen.Add(memberSymbol))
+            if (DelegationTargetSymbol.IsSupported(memberSymbol) && seen.Add(memberSymbol))
             {
                 yield return memberSymbol;
             }
@@ -248,7 +248,7 @@ internal static class ExposeTargetAnalyzer
         {
             foreach (var parameterSymbol in constructorSymbol.Parameters)
             {
-                if (GenerationContextFactory.IsSupportedTargetSymbol(parameterSymbol) && seen.Add(parameterSymbol))
+                if (DelegationTargetSymbol.IsSupported(parameterSymbol) && seen.Add(parameterSymbol))
                 {
                     yield return parameterSymbol;
                 }

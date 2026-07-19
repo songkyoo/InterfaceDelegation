@@ -10,7 +10,7 @@ internal static class LiftTargetAnalyzer
         CancellationToken cancellationToken
     )
     {
-        var results = GenerationContextFactory.CreateLiftContexts(attributeContext, cancellationToken);
+        var results = LiftContextFactory.CreateAll(attributeContext, cancellationToken);
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
         var lines = ImmutableArray.CreateBuilder<string>();
 

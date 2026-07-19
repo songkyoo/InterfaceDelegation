@@ -1,9 +1,11 @@
 ﻿using System.Diagnostics;
 
+using static System.AttributeTargets;
+
 namespace Macaron.InterfaceDelegation;
 
 [Conditional("SOURCE_GENERATOR_ONLY")]
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = true)]
+[AttributeUsage(validOn: Property | Field | Parameter, AllowMultiple = true)]
 public sealed class ExposeAttribute(
     Type? interfaceType = null,
     ImplementationMode mode = ImplementationMode.Implicit

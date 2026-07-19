@@ -1,17 +1,18 @@
 ﻿using System.Diagnostics;
 
+using static System.AttributeTargets;
+
 namespace Macaron.InterfaceDelegation;
 
 [Conditional("SOURCE_GENERATOR_ONLY")]
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter)]
+[AttributeUsage(validOn: Property | Field | Parameter)]
 public sealed class LiftAttribute(
-    bool includeBaseTypes = false,
     string[]? filter = null,
     string[]? remove = null,
     string[]? rename = null
 ) : Attribute
 {
-    public bool IncludeBaseTypes { get; } = includeBaseTypes;
+    public bool IncludeBaseTypes { get; set; }
 
     public string[]? Filter { get; } = filter;
 

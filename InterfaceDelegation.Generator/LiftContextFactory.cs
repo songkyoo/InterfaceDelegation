@@ -32,10 +32,14 @@ internal static class LiftContextFactory
     private static GenerationAnalysisResult Create(AttributeData attributeData, ISymbol declaredSymbol)
     {
         var constructorArguments = attributeData.ConstructorArguments;
-        var includeBaseTypes = constructorArguments[0].Value is true;
-        var filter = ReadStringArray(constructorArguments[1]).ToImmutableHashSet();
-        var remove = ReadStringArray(constructorArguments[2]).ToImmutableHashSet();
-        var rename = ReadStringArray(constructorArguments[3])
+        var includeBaseTypes = attributeData
+            .NamedArguments
+            .FirstOrDefault(static argument => argument.Key == nameof(LiftAttribute.IncludeBaseTypes))
+            .Value
+            .Value is true;
+        var filter = ReadStringArray(constructorArguments[0]).ToImmutableHashSet();
+        var remove = ReadStringArray(constructorArguments[1]).ToImmutableHashSet();
+        var rename = ReadStringArray(constructorArguments[2])
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(ParseRename)
             .Where(static pair => pair != null)

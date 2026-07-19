@@ -181,11 +181,12 @@ partial class Qux
 
 #### `Lift`에 옵션을 지정하여 위임할 멤버를 선택하기
 
-`Lift` 어트리뷰트는 세 개의 옵션을 지정할 수 있습니다. 모든 옵션은 문자열 목록입니다.
+`Lift` 어트리뷰트는 위임할 멤버와 탐색 범위를 정하는 옵션을 지정할 수 있습니다.
 
 - `filter`: 지정한 이름의 멤버만 위임 대상에 포함합니다. 값을 지정하지 않으면 모든 멤버가 대상이 됩니다.
 - `remove`: `filter`가 적용된 위임 대상 목록에서 지정한 이름의 멤버를 제외합니다.
 - `rename`: 남은 위임 대상에 대해서 `키:값` 형태의 문자열을 사용하여 위임할 이름을 변경합니다.
+- `IncludeBaseTypes`: `true`이면 대상 타입의 기반 타입에 선언된 멤버도 위임 대상에 포함합니다. 기본값은 `false`입니다.
 
 ```csharp
 using Macaron.InterfaceDelegation;
@@ -204,7 +205,8 @@ public partial class Qux
     [Lift(
         filter: new[] { "Bar", "Qux" }, // Bar, Qux만 위임
         remove: new[] { "Bar" }, // Bar를 제외
-        rename: new[] { "Qux:Quux" } // Qux를 Quux로 변경
+        rename: new[] { "Qux:Quux" }, // Qux를 Quux로 변경
+        IncludeBaseTypes = true // 기반 타입의 멤버도 포함
     )]
     private Foo _foo = new();
 }

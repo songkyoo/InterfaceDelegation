@@ -63,7 +63,7 @@ public sealed class LiftGenerationTests
 
             public partial class Bar
             {
-                [Lift(includeBaseTypes: true)]
+                [Lift(IncludeBaseTypes = true)]
                 private readonly Foo _impl = null!;
             }
             """,
@@ -195,16 +195,16 @@ public sealed class LiftGenerationTests
                 public void Renamed() { }
 
                 [Lift(
-                    includeBaseTypes: true,
                     filter: new[] { "BaseValue", "Value", "GetA", "GetB" },
                     remove: new[] { "GetB" },
-                    rename: new[] { "BaseValue:ParentValue", "Value:Answer", "GetA:Renamed" }
+                    rename: new[] { "BaseValue:ParentValue", "Value:Answer", "GetA:Renamed" },
+                    IncludeBaseTypes = true
                 )]
                 private readonly LiftTarget _impl = new();
 
                 [Lift(
-                    includeBaseTypes: false,
-                    filter: new[] { "GetB" }
+                    filter: new[] { "GetB" },
+                    IncludeBaseTypes = false
                 )]
                 private readonly LiftTarget _impl2 = new();
             }
@@ -277,7 +277,7 @@ public sealed class LiftGenerationTests
 
             public partial class ExplicitNullLift
             {
-                [Lift(false, null, null, null)]
+                [Lift(null, null, null)]
                 private readonly LiftTarget _impl = new();
             }
 

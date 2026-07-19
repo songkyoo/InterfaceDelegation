@@ -51,7 +51,7 @@ public static class MemberComparisonHelper
         ITypeSymbol interfaceSymbol
     )
     {
-        return MemberImplementationIndex.Create(GetMembersWithBaseTypes(typeSymbol), interfaceSymbol);
+        return MemberImplementationIndex.Create(GetImplementationCandidates(typeSymbol), interfaceSymbol);
     }
 
     internal static bool MatchesMethodSignature(
@@ -157,7 +157,7 @@ public static class MemberComparisonHelper
             && comparer.Equals(eventSymbol.Type, targetEventSymbol.Type);
     }
 
-    private static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
+    private static IEnumerable<ISymbol> GetImplementationCandidates(ITypeSymbol typeSymbol)
     {
         foreach (var memberSymbol in typeSymbol.GetMembers())
         {
@@ -191,7 +191,7 @@ public static class MemberComparisonHelper
     {
         if (typeSymbol.TypeKind == Interface)
         {
-            foreach (var memberSymbol in DelegationMemberHelper.GetMembersWithBaseTypes(typeSymbol))
+            foreach (var memberSymbol in DelegationMemberProvider.GetMembersIncludingBaseTypes(typeSymbol))
             {
                 if (!memberSymbol.IsStatic)
                 {
@@ -202,7 +202,7 @@ public static class MemberComparisonHelper
             yield break;
         }
 
-        foreach (var memberSymbol in GetMembersWithBaseTypes(typeSymbol))
+        foreach (var memberSymbol in GetImplementationCandidates(typeSymbol))
         {
             if (!memberSymbol.IsStatic)
             {

@@ -17,7 +17,7 @@ internal static class ExposeGenerationPolicy
 
     public static IEnumerable<ISymbol> GetTargetMembers(ExposeGenerationContext context)
     {
-        foreach (var symbol in DelegationMemberHelper.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
+        foreach (var symbol in DelegationMemberProvider.GetMembersIncludingBaseTypes(context.DelegationTypeSymbol))
         {
             if (ExposeMemberRules.IsSupportedInterfaceMember(symbol))
             {
@@ -37,9 +37,9 @@ internal static class ExposeGenerationPolicy
         var mode = symbolName == typeSymbol.Name || context.Mode == ImplementationMode.Explicit
             ? DelegationMemberGenerationMode.ExplicitInterfaceImplementation
             : DelegationMemberGenerationMode.ImplicitInterfaceImplementation;
-        var decision = DelegationMemberHelper.GetGenerationDecision(
+        var decision = DelegationMemberGenerationPolicy.GetDecision(
             mode,
-            containingTypeSymbol: typeSymbol,
+            targetTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,
                 symbolName,

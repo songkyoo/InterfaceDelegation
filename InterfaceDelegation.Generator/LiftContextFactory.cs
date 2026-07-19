@@ -86,8 +86,8 @@ internal static class LiftContextFactory
     )
     {
         var members = includeBaseTypes
-            ? DelegationMemberHelper.GetMembersWithBaseTypes(delegationTypeSymbol)
-            : DelegationMemberHelper.GetMembers(delegationTypeSymbol);
+            ? DelegationMemberProvider.GetMembersIncludingBaseTypes(delegationTypeSymbol)
+            : DelegationMemberProvider.GetDeclaredMembers(delegationTypeSymbol);
 
         foreach (var symbol in members)
         {

@@ -9,8 +9,8 @@ internal static class LiftGenerationPolicy
         var symbols = !context.PrecomputedTargetMembers.IsDefault
             ? context.PrecomputedTargetMembers
             : context.IncludeBaseTypes
-            ? DelegationMemberHelper.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : DelegationMemberHelper.GetMembers(context.DelegationTypeSymbol);
+            ? DelegationMemberProvider.GetMembersIncludingBaseTypes(context.DelegationTypeSymbol)
+            : DelegationMemberProvider.GetDeclaredMembers(context.DelegationTypeSymbol);
 
         foreach (var symbol in symbols)
         {
@@ -33,9 +33,9 @@ internal static class LiftGenerationPolicy
         var symbolName = context.Rename.TryGetValue(symbol.Name, out var renamed)
             ? renamed
             : symbol.Name;
-        var decision = DelegationMemberHelper.GetGenerationDecision(
+        var decision = DelegationMemberGenerationPolicy.GetDecision(
             mode: DelegationMemberGenerationMode.Lift,
-            containingTypeSymbol: typeSymbol,
+            targetTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,
                 symbolName,

@@ -113,7 +113,7 @@ internal static class ExposeContextFactory
             )
         );
 
-        foreach (var interfaceMember in DelegationMemberHelper.GetMembersWithBaseTypes(interfaceTypeSymbol))
+        foreach (var interfaceMember in DelegationMemberProvider.GetMembersIncludingBaseTypes(interfaceTypeSymbol))
         {
             cancellationToken.ThrowIfCancellationRequested();
 

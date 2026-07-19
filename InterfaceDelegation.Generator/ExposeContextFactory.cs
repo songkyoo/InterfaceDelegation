@@ -103,7 +103,7 @@ internal static class ExposeContextFactory
         var builder = ImmutableArray.CreateBuilder<Diagnostic>();
         var location = AttributeArgumentReader.GetFirstArgumentLocation(attributeData) ??
             attributeData.ApplicationSyntaxReference?.GetSyntax().GetLocation();
-        var hasCompatibleImplementation = MemberComparisonHelper.BuildCompatibleImplementationChecker(
+        var implementationChecker = MemberComparisonHelper.CreateCompatibleImplementationChecker(
             typeSymbol: targetTypeSymbol,
             interfaceSymbol: interfaceTypeSymbol,
             isAccessible: memberSymbol => compilation.IsSymbolAccessibleWithin(
@@ -122,7 +122,7 @@ internal static class ExposeContextFactory
                 continue;
             }
 
-            if (!hasCompatibleImplementation(interfaceMember))
+            if (!implementationChecker.HasImplementation(interfaceMember))
             {
                 builder.Add(Diagnostic.Create(
                     descriptor: GenerationDiagnostics.ExposeMemberNotImplementedRule,

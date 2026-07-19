@@ -1,5 +1,10 @@
 using Microsoft.CodeAnalysis;
 
+using static Macaron.InterfaceDelegation.DelegationMemberGenerationDecision;
+using static Macaron.InterfaceDelegation.DelegationMemberGenerationMode;
+using static Macaron.InterfaceDelegation.MethodReturnTypeComparison;
+using static Microsoft.CodeAnalysis.Accessibility;
+
 namespace Macaron.InterfaceDelegation;
 
 internal static class LiftGenerationPolicy
@@ -34,21 +39,21 @@ internal static class LiftGenerationPolicy
             ? renamed
             : symbol.Name;
         var decision = DelegationMemberGenerationPolicy.GetDecision(
-            mode: DelegationMemberGenerationMode.Lift,
+            mode: Lift,
             targetTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,
                 symbolName,
-                checkReturnType: false
+                returnTypeComparison: Ignore
             ),
             explicitMemberSymbol: implementationIndex.FindExplicit(
                 symbol,
                 symbolName,
-                checkReturnType: false
+                returnTypeComparison: Ignore
             )
         );
 
-        if (decision == DelegationMemberGenerationDecision.Skip)
+        if (decision == Skip)
         {
             return null;
         }
@@ -56,7 +61,7 @@ internal static class LiftGenerationPolicy
         return new DelegationMemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsAbstract: decision == DelegationMemberGenerationDecision.OverrideAbstractMember,
+            IsAbstract: decision == OverrideAbstractMember,
             Accessibility: $"{symbol.DeclaredAccessibility.ToString().ToLower()} ",
             InterfacePrefix: ""
         );
@@ -64,7 +69,7 @@ internal static class LiftGenerationPolicy
 
     private static bool ShouldIncludeSymbol(LiftGenerationContext context, ISymbol symbol)
     {
-        if (symbol.DeclaredAccessibility is not Accessibility.Public and not Accessibility.Internal)
+        if (symbol.DeclaredAccessibility is not Public and not Internal)
         {
             return false;
         }

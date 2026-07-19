@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using static Macaron.InterfaceDelegation.GenerationOutputKind;
 
 namespace Macaron.InterfaceDelegation;
 
@@ -142,7 +143,7 @@ internal static class ExposeTargetAnalyzer
 
         return TargetGenerationComposer.CreateOutput(
             attributeContext.TargetSymbol,
-            outputKind: "Expose",
+            outputKind: Expose,
             lines,
             diagnostics.ToImmutable()
         );

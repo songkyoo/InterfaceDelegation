@@ -1,6 +1,9 @@
-﻿using System.Text;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using System.Security.Cryptography;
+
+using static Macaron.InterfaceDelegation.GenerationOutputKind;
+using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
 namespace Macaron.InterfaceDelegation;
 
@@ -20,16 +23,26 @@ public static class SourceGenerationHelper
     public static string GetPartialTypeDeclarationString(INamedTypeSymbol typeSymbol)
     {
         var typeKind = GetTypeKindString(typeSymbol);
-        var typeName = typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+        var typeName = typeSymbol.ToDisplayString(MinimallyQualifiedFormat);
 
         return $"partial {typeKind} {typeName}";
     }
 
-    public static string GetHintName(INamedTypeSymbol typeSymbol, ISymbol targetSymbol, string outputKind)
+    internal static string GetHintName(
+        INamedTypeSymbol typeSymbol,
+        ISymbol targetSymbol,
+        GenerationOutputKind outputKind
+    )
     {
-        var qualifiedName = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var targetName = targetSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        var identity = $"{qualifiedName}|{targetSymbol.Kind}|{targetName}|{outputKind}";
+        var outputKindName = outputKind switch
+        {
+            Expose => nameof(Expose),
+            Lift => nameof(Lift),
+            _ => throw new ArgumentOutOfRangeException(nameof(outputKind), outputKind, null),
+        };
+        var qualifiedName = typeSymbol.ToDisplayString(FullyQualifiedFormat);
+        var targetName = targetSymbol.ToDisplayString(FullyQualifiedFormat);
+        var identity = $"{qualifiedName}|{targetSymbol.Kind}|{targetName}|{outputKindName}";
         byte[] hash;
 
         using (var algorithm = SHA256.Create())
@@ -39,7 +52,7 @@ public static class SourceGenerationHelper
 
         var hashString = string.Concat(hash.Take(16).Select(static value => value.ToString("x2")));
 
-        return $"{typeSymbol.Name}_{typeSymbol.Arity}.{outputKind}.{hashString}.g.cs";
+        return $"{typeSymbol.Name}_{typeSymbol.Arity}.{outputKindName}.{hashString}.g.cs";
     }
 
     private static string GetTypeKindString(INamedTypeSymbol typeSymbol)

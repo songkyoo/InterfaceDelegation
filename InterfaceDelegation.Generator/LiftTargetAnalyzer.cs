@@ -28,7 +28,7 @@ internal static class LiftTargetAnalyzer
 
         return TargetGenerationComposer.CreateOutput(
             targetSymbol: attributeContext.TargetSymbol,
-            outputKind: "Lift",
+            outputKind: GenerationOutputKind.Lift,
             lines,
             diagnostics: diagnostics.ToImmutable()
         );

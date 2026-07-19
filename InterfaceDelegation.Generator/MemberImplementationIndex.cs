@@ -138,14 +138,22 @@ internal sealed class MemberImplementationIndex
         );
     }
 
-    public ISymbol? FindImplicit(ISymbol symbol, string symbolName, bool checkReturnType)
+    public ISymbol? FindImplicit(
+        ISymbol symbol,
+        string symbolName,
+        MethodReturnTypeComparison returnTypeComparison
+    )
     {
-        return Find(symbol, symbolName, checkReturnType, _implicitMembers);
+        return Find(symbol, symbolName, returnTypeComparison, _implicitMembers);
     }
 
-    public ISymbol? FindExplicit(ISymbol symbol, string symbolName, bool checkReturnType)
+    public ISymbol? FindExplicit(
+        ISymbol symbol,
+        string symbolName,
+        MethodReturnTypeComparison returnTypeComparison
+    )
     {
-        return Find(symbol, symbolName, checkReturnType, _explicitMembers);
+        return Find(symbol, symbolName, returnTypeComparison, _explicitMembers);
     }
 
     private MemberImplementationIndex(MemberLookups implicitMembers, MemberLookups explicitMembers)
@@ -157,7 +165,7 @@ internal sealed class MemberImplementationIndex
     private static ISymbol? Find(
         ISymbol symbol,
         string symbolName,
-        bool checkReturnType,
+        MethodReturnTypeComparison returnTypeComparison,
         MemberLookups lookups
     )
     {
@@ -172,7 +180,7 @@ internal sealed class MemberImplementationIndex
                                 methodSymbol,
                                 symbolName,
                                 candidate,
-                                checkReturnType
+                                returnTypeComparison
                             )
                         );
                     }

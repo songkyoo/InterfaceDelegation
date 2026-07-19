@@ -10,10 +10,7 @@ internal static class TargetGenerationComposer
 {
     private const string Space = "    ";
 
-    public static void AppendGeneration(
-        ImmutableArray<string>.Builder builder,
-        GenerationContext generationContext
-    )
+    public static void AppendGeneration(ImmutableArray<string>.Builder builder, GenerationContext generationContext)
     {
         var lines = DelegationGenerationPipeline.Generate(generationContext);
 
@@ -34,24 +31,27 @@ internal static class TargetGenerationComposer
 
     public static TargetGenerationOutput CreateOutput(
         ISymbol targetSymbol,
-        string outputKind,
+        GenerationOutputKind outputKind,
         ImmutableArray<string>.Builder lines,
         ImmutableArray<Diagnostic> diagnostics
     )
     {
         if (lines.Count == 0)
         {
-            return new TargetGenerationOutput(null, diagnostics);
+            return new TargetGenerationOutput(
+                Source: null,
+                Diagnostics: diagnostics
+            );
         }
 
         var typeSymbol = targetSymbol.ContainingType;
 
         return new TargetGenerationOutput(
-            new GeneratedSourceOutput(
+            Source: new GeneratedSourceOutput(
                 HintName: GetHintName(typeSymbol, targetSymbol, outputKind),
                 Source: RenderSource(typeSymbol, lines)
             ),
-            diagnostics
+            Diagnostics: diagnostics
         );
     }
 

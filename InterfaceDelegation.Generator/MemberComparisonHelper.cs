@@ -17,7 +17,7 @@ public static class MemberComparisonHelper
             || typeSymbol.AllInterfaces.Contains(interfaceSymbol, comparer);
     }
 
-    public static Func<ISymbol, bool> BuildCompatibleImplementationChecker(
+    internal static CompatibleImplementationChecker CreateCompatibleImplementationChecker(
         ITypeSymbol typeSymbol,
         ITypeSymbol interfaceSymbol,
         Func<ISymbol, bool>? isAccessible = null
@@ -37,13 +37,7 @@ public static class MemberComparisonHelper
             explicitImplementations
         );
 
-        return interfaceMemberSymbol =>
-            implementationIndex.FindImplicit(
-                interfaceMemberSymbol,
-                interfaceMemberSymbol.Name,
-                checkReturnType: true
-            ) != null
-            || explicitImplementations.Contains(interfaceMemberSymbol);
+        return new CompatibleImplementationChecker(implementationIndex, explicitImplementations);
     }
 
     internal static MemberImplementationIndex CreateImplementationIndex(
@@ -58,7 +52,7 @@ public static class MemberComparisonHelper
         IMethodSymbol methodSymbol,
         string methodName,
         IMethodSymbol targetMethodSymbol,
-        bool checkReturnType
+        MethodReturnTypeComparison returnTypeComparison
     )
     {
         var comparer = SymbolEqualityComparer.Default;
@@ -68,7 +62,9 @@ public static class MemberComparisonHelper
             return false;
         }
 
-        if (checkReturnType && !comparer.Equals(methodSymbol.ReturnType, targetMethodSymbol.ReturnType))
+        if (returnTypeComparison == MethodReturnTypeComparison.Match
+            && !comparer.Equals(methodSymbol.ReturnType, targetMethodSymbol.ReturnType)
+        )
         {
             return false;
         }

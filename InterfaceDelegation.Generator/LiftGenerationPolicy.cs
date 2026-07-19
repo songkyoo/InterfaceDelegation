@@ -1,7 +1,5 @@
 using Microsoft.CodeAnalysis;
 
-using MemberGenerationMode = Macaron.InterfaceDelegation .DelegationMemberUtilities.MemberGenerationMode;
-
 namespace Macaron.InterfaceDelegation;
 
 internal static class LiftGenerationPolicy
@@ -11,8 +9,8 @@ internal static class LiftGenerationPolicy
         var symbols = !context.PrecomputedTargetMembers.IsDefault
             ? context.PrecomputedTargetMembers
             : context.IncludeBaseTypes
-            ? DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
-            : DelegationMemberUtilities.GetMembers(context.DelegationTypeSymbol);
+            ? DelegationMemberHelper.GetMembersWithBaseTypes(context.DelegationTypeSymbol)
+            : DelegationMemberHelper.GetMembers(context.DelegationTypeSymbol);
 
         foreach (var symbol in symbols)
         {
@@ -25,7 +23,7 @@ internal static class LiftGenerationPolicy
         }
     }
 
-    public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
+    public static DelegationMemberGenerationContext? CreateMemberGenerationContext(
         LiftGenerationContext context,
         ISymbol symbol,
         MemberImplementationIndex implementationIndex
@@ -35,12 +33,8 @@ internal static class LiftGenerationPolicy
         var symbolName = context.Rename.TryGetValue(symbol.Name, out var renamed)
             ? renamed
             : symbol.Name;
-        var (
-            hasImplementedMember,
-            isExplicit,
-            isAbstract
-        ) = DelegationMemberUtilities.GetImplementationContext(
-            mode: MemberGenerationMode.Lift,
+        var decision = DelegationMemberHelper.GetGenerationDecision(
+            mode: DelegationMemberGenerationMode.Lift,
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
                 symbol,
@@ -54,16 +48,16 @@ internal static class LiftGenerationPolicy
             )
         );
 
-        if (hasImplementedMember)
+        if (decision == DelegationMemberGenerationDecision.Skip)
         {
             return null;
         }
 
-        return new DelegationMemberUtilities.MemberGenerationContext(
+        return new DelegationMemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsAbstract: isAbstract,
-            Accessibility: isExplicit ? "" : $"{symbol.DeclaredAccessibility.ToString().ToLower()} ",
+            IsAbstract: decision == DelegationMemberGenerationDecision.OverrideAbstractMember,
+            Accessibility: $"{symbol.DeclaredAccessibility.ToString().ToLower()} ",
             InterfacePrefix: ""
         );
     }

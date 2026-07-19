@@ -12,7 +12,7 @@ internal static class DelegationRenderingCore
     private const string Space = "    ";
 
     internal readonly record struct RenderContext(
-        DelegationMemberUtilities.MemberGenerationContext MemberContext,
+        DelegationMemberGenerationContext MemberContext,
         bool IsMemberImplementingInterface,
         bool IsField,
         string DeclaredSymbolName,
@@ -21,7 +21,7 @@ internal static class DelegationRenderingCore
     {
         public static RenderContext Create(
             DelegationGenerationContext executionContext,
-            DelegationMemberUtilities.MemberGenerationContext memberContext
+            DelegationMemberGenerationContext memberContext
         )
         {
             return new RenderContext(
@@ -39,60 +39,60 @@ internal static class DelegationRenderingCore
         IMethodSymbol methodSymbol,
         ImmutableArray<string>.Builder builder
     )
-{
-    var symbolName = context.MemberContext.SymbolName;
-    var isAbstract = context.MemberContext.IsAbstract;
-    var accessibility = context.MemberContext.Accessibility;
-    var @interface = context.MemberContext.InterfacePrefix;
-    var @override = isAbstract ? "override " : "";
-    var genericParameterNames = methodSymbol.TypeParameters.Length > 0
-        ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
-        : "";
-    var genericParameterConstraints = methodSymbol
-        .TypeParameters
-        .Select(GetTypeParameterConstraintClause)
-        .Where(static constraint => constraint.Length > 0)
-        .ToImmutableArray();
-    var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
-        IncludeNullableReferenceTypeModifier | UseSpecialTypes
-    ));
-    var methodName = methodSymbol.Name;
-    var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
-    var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
-    var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
-
-    AddSpacer(builder);
-    builder.Add($"{accessibility}{@override}{returnType} {@interface}{symbolName}{genericParameters}({parameters})");
-
-    foreach (var constraint in genericParameterConstraints)
     {
-        builder.Add($"{Space}{constraint}");
-    }
+        var symbolName = context.MemberContext.SymbolName;
+        var isAbstract = context.MemberContext.IsAbstract;
+        var accessibility = context.MemberContext.Accessibility;
+        var @interface = context.MemberContext.InterfacePrefix;
+        var @override = isAbstract ? "override " : "";
+        var genericParameterNames = methodSymbol.TypeParameters.Length > 0
+            ? string.Join(", ", methodSymbol.TypeParameters.Select(static symbol => symbol.Name))
+            : "";
+        var genericParameterConstraints = methodSymbol
+            .TypeParameters
+            .Select(GetTypeParameterConstraintClause)
+            .Where(static constraint => constraint.Length > 0)
+            .ToImmutableArray();
+        var returnType = methodSymbol.ReturnType.ToDisplayString(FullyQualifiedFormat.WithMiscellaneousOptions(
+            IncludeNullableReferenceTypeModifier | UseSpecialTypes
+        ));
+        var methodName = methodSymbol.Name;
+        var genericParameters = genericParameterNames.Length > 0 ? $"<{genericParameterNames}>" : "";
+        var parameters = string.Join(", ", methodSymbol.Parameters.Select(GetParameterString));
+        var arguments = string.Join(", ", methodSymbol.Parameters.Select(GetArgumentString));
 
-    if (context.IsMemberImplementingInterface)
-    {
-        builder.Add("{");
+        AddSpacer(builder);
+        builder.Add($"{accessibility}{@override}{returnType} {@interface}{symbolName}{genericParameters}({parameters})");
 
-        if (context.IsField)
+        foreach (var constraint in genericParameterConstraints)
         {
-            builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(in {context.DeclaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
-            builder.Add("");
-            builder.Add($"{Space}#region Local Functions");
-            builder.Add($"{Space}static {returnType} __{methodName}<__T>(in __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {context.InterfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
-            builder.Add($"{Space}#endregion");
+            builder.Add($"{Space}{constraint}");
+        }
+
+        if (context.IsMemberImplementingInterface)
+        {
+            builder.Add("{");
+
+            if (context.IsField)
+            {
+                builder.Add($"{Space}{(returnType != "void" ? "return " : "")}__{methodName}(in {context.DeclaredSymbolName}{(arguments.Length > 0 ? $", {arguments}" : "")});");
+                builder.Add("");
+                builder.Add($"{Space}#region Local Functions");
+                builder.Add($"{Space}static {returnType} __{methodName}<__T>(in __T __impl{(parameters.Length > 0 ? $", {parameters}" : "")}) where __T : {context.InterfaceTypeString} => __impl.{methodName}{genericParameters}({arguments});");
+                builder.Add($"{Space}#endregion");
+            }
+            else
+            {
+                builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({context.InterfaceTypeString}){context.DeclaredSymbolName}).{methodName}({arguments});");
+            }
+
+            builder.Add("}");
         }
         else
         {
-            builder.Add($"{Space}{(returnType != "void" ? "return " : "")}(({context.InterfaceTypeString}){context.DeclaredSymbolName}).{methodName}({arguments});");
+            builder.Add($"{Space}=> {context.DeclaredSymbolName}.{methodName}{genericParameters}({arguments});");
         }
-
-        builder.Add("}");
     }
-    else
-    {
-        builder.Add($"{Space}=> {context.DeclaredSymbolName}.{methodName}{genericParameters}({arguments});");
-    }
-}
 
     public static void RenderProperty(
         RenderContext context,

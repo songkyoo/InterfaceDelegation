@@ -1,26 +1,12 @@
 using Microsoft.CodeAnalysis;
+
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 using static Microsoft.CodeAnalysis.TypeKind;
 
 namespace Macaron.InterfaceDelegation;
 
-internal static class DelegationMemberUtilities
+internal static class DelegationMemberHelper
 {
-    internal enum MemberGenerationMode
-    {
-        ImplicitInterfaceImplementation,
-        ExplicitInterfaceImplementation,
-        Lift,
-    }
-
-    internal readonly record struct MemberGenerationContext(
-        ISymbol Symbol,
-        string SymbolName,
-        bool IsAbstract,
-        string Accessibility,
-        string InterfacePrefix
-    );
-
     public static IEnumerable<ISymbol> GetMembersWithBaseTypes(ITypeSymbol typeSymbol)
     {
         if (typeSymbol.TypeKind == Interface)
@@ -51,23 +37,23 @@ internal static class DelegationMemberUtilities
                 switch (memberSymbol)
                 {
                     case IMethodSymbol { OverriddenMethod: { } overriddenMethod }:
-                    {
-                        overriddenSymbols.Add(overriddenMethod);
+                        {
+                            overriddenSymbols.Add(overriddenMethod);
 
-                        break;
-                    }
+                            break;
+                        }
                     case IPropertySymbol { OverriddenProperty: { } overriddenProperty }:
-                    {
-                        overriddenSymbols.Add(overriddenProperty);
+                        {
+                            overriddenSymbols.Add(overriddenProperty);
 
-                        break;
-                    }
+                            break;
+                        }
                     case IEventSymbol { OverriddenEvent: { } overriddenEvent }:
-                    {
-                        overriddenSymbols.Add(overriddenEvent);
+                        {
+                            overriddenSymbols.Add(overriddenEvent);
 
-                        break;
-                    }
+                            break;
+                        }
                 }
 
                 if (overriddenSymbols.Contains(memberSymbol))
@@ -93,47 +79,42 @@ internal static class DelegationMemberUtilities
         }
     }
 
-    public static (bool hasImplementedMember, bool isExplicit, bool isAbstract) GetImplementationContext(
-        MemberGenerationMode mode,
+    public static DelegationMemberGenerationDecision GetGenerationDecision(
+        DelegationMemberGenerationMode mode,
         ITypeSymbol? containingTypeSymbol,
         ISymbol? implicitMemberSymbol,
         ISymbol? explicitMemberSymbol
     )
     {
-        var defaultValue = (
-            hasImplementedMember: false,
-            isExplicit: false,
-            isAbstract: false
-        );
-
-        var result = mode switch
+        var decision = mode switch
         {
-            MemberGenerationMode.ImplicitInterfaceImplementation => (
+            DelegationMemberGenerationMode.ImplicitInterfaceImplementation => (
                 implicitMemberSymbol,
                 explicitMemberSymbol
             ) switch
             {
-                (null, null) => defaultValue,
-                ({ IsAbstract: true }, null) => defaultValue with { isAbstract = true },
-                _ => defaultValue with { hasImplementedMember = true },
+                (null, null) => DelegationMemberGenerationDecision.Generate,
+                ({ IsAbstract: true }, null) => DelegationMemberGenerationDecision.OverrideAbstractMember,
+                _ => DelegationMemberGenerationDecision.Skip,
             },
-            MemberGenerationMode.ExplicitInterfaceImplementation => explicitMemberSymbol == null
-                ? defaultValue with { isExplicit = true }
-                : defaultValue with { hasImplementedMember = true },
-            MemberGenerationMode.Lift => implicitMemberSymbol switch
+            DelegationMemberGenerationMode.ExplicitInterfaceImplementation => explicitMemberSymbol == null
+                ? DelegationMemberGenerationDecision.GenerateExplicitInterfaceImplementation
+                : DelegationMemberGenerationDecision.Skip,
+            DelegationMemberGenerationMode.Lift => implicitMemberSymbol switch
             {
-                null => defaultValue,
-                { IsAbstract: true } => defaultValue with { isAbstract = true },
-                _ => defaultValue with { hasImplementedMember = true },
+                null => DelegationMemberGenerationDecision.Generate,
+                { IsAbstract: true } => DelegationMemberGenerationDecision.OverrideAbstractMember,
+                _ => DelegationMemberGenerationDecision.Skip,
             },
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
         };
 
         var comparer = SymbolEqualityComparer.Default;
 
-        return result.isAbstract && comparer.Equals(implicitMemberSymbol!.ContainingType, containingTypeSymbol)
-            ? defaultValue with { hasImplementedMember = true }
-            : result;
+        return decision == DelegationMemberGenerationDecision.OverrideAbstractMember
+            && comparer.Equals(implicitMemberSymbol!.ContainingType, containingTypeSymbol)
+            ? DelegationMemberGenerationDecision.Skip
+            : decision;
     }
 
     private static bool IsBaseType(ITypeSymbol symbol)

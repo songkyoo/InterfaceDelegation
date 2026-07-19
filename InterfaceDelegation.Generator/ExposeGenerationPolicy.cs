@@ -2,8 +2,6 @@ using Microsoft.CodeAnalysis;
 
 using static Microsoft.CodeAnalysis.SymbolDisplayFormat;
 
-using MemberGenerationMode = Macaron.InterfaceDelegation .DelegationMemberUtilities.MemberGenerationMode;
-
 namespace Macaron.InterfaceDelegation;
 
 internal static class ExposeGenerationPolicy
@@ -19,7 +17,7 @@ internal static class ExposeGenerationPolicy
 
     public static IEnumerable<ISymbol> GetTargetMembers(ExposeGenerationContext context)
     {
-        foreach (var symbol in DelegationMemberUtilities.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
+        foreach (var symbol in DelegationMemberHelper.GetMembersWithBaseTypes(context.DelegationTypeSymbol))
         {
             if (ExposeMemberRules.IsSupportedInterfaceMember(symbol))
             {
@@ -28,7 +26,7 @@ internal static class ExposeGenerationPolicy
         }
     }
 
-    public static DelegationMemberUtilities.MemberGenerationContext? CreateMemberGenerationContext(
+    public static DelegationMemberGenerationContext? CreateMemberGenerationContext(
         ExposeGenerationContext context,
         ISymbol symbol,
         MemberImplementationIndex implementationIndex
@@ -37,13 +35,9 @@ internal static class ExposeGenerationPolicy
         var typeSymbol = context.DeclaredSymbol.ContainingType;
         var symbolName = symbol.Name;
         var mode = symbolName == typeSymbol.Name || context.Mode == ImplementationMode.Explicit
-            ? MemberGenerationMode.ExplicitInterfaceImplementation
-            : MemberGenerationMode.ImplicitInterfaceImplementation;
-        var (
-            hasImplementedMember,
-            isExplicit,
-            isAbstract
-        ) = DelegationMemberUtilities.GetImplementationContext(
+            ? DelegationMemberGenerationMode.ExplicitInterfaceImplementation
+            : DelegationMemberGenerationMode.ImplicitInterfaceImplementation;
+        var decision = DelegationMemberHelper.GetGenerationDecision(
             mode,
             containingTypeSymbol: typeSymbol,
             implicitMemberSymbol: implementationIndex.FindImplicit(
@@ -58,15 +52,17 @@ internal static class ExposeGenerationPolicy
             )
         );
 
-        if (hasImplementedMember)
+        if (decision == DelegationMemberGenerationDecision.Skip)
         {
             return null;
         }
 
-        return new DelegationMemberUtilities.MemberGenerationContext(
+        var isExplicit = decision == DelegationMemberGenerationDecision.GenerateExplicitInterfaceImplementation;
+
+        return new DelegationMemberGenerationContext(
             Symbol: symbol,
             SymbolName: symbolName,
-            IsAbstract: isAbstract,
+            IsAbstract: decision == DelegationMemberGenerationDecision.OverrideAbstractMember,
             Accessibility: isExplicit ? "" : "public ",
             InterfacePrefix: isExplicit
                 ? $"{context.DelegationTypeSymbol.ToDisplayString(FullyQualifiedFormat)}."

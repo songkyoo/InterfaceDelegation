@@ -191,7 +191,7 @@ public static class MemberComparisonHelper
     {
         if (typeSymbol.TypeKind == Interface)
         {
-            foreach (var memberSymbol in DelegationMemberUtilities.GetMembersWithBaseTypes(typeSymbol))
+            foreach (var memberSymbol in DelegationMemberHelper.GetMembersWithBaseTypes(typeSymbol))
             {
                 if (!memberSymbol.IsStatic)
                 {

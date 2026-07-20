@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <AssemblyName>Macaron.InterfaceDelegation.Core</AssemblyName>
+    <AssemblyName>Macaron.InterfaceDelegation.Attribute</AssemblyName>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>

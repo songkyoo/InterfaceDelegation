@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="InterfaceDelegation/InterfaceDelegation.csproj" />
+  <Project Path="InterfaceDelegation.Attribute/InterfaceDelegation.Attribute.csproj" />
+  <Project Path="InterfaceDelegation.Generator/InterfaceDelegation.Generator.csproj" />
+  <Project Path="InterfaceDelegation.Tests/InterfaceDelegation.Tests.csproj" />
+</Solution>
